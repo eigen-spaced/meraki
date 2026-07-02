@@ -168,6 +168,18 @@ def freeze_document(conn: sqlite3.Connection, doc_id: int) -> str:
     return ts
 
 
+def clear_all(conn: sqlite3.Connection) -> int:
+    """Wipe every row from the database (debug / reset escape hatch). Returns the
+    number of documents removed. Deleting documents cascades to annotations and
+    tag links via the foreign keys; tags are cleared separately. Generated .org
+    files on disk are left untouched -- they're derived artifacts the user can
+    remove on their own. One-way: there's no undo."""
+    n = conn.execute("SELECT COUNT(*) AS c FROM documents").fetchone()["c"]
+    conn.execute("DELETE FROM documents")   # cascades annotations + tag links
+    conn.execute("DELETE FROM tags")
+    return n
+
+
 def delete_document(conn: sqlite3.Connection,
                     doc_id: int) -> tuple[str | None, list[str]]:
     """Delete a document and everything under it -- annotations, tag links, and

@@ -358,6 +358,31 @@ def main() -> None:
     assert "second passage" in org2, "surviving annotation must remain"
     print("PASS: delete removes annotation from regenerated org file")
 
+    # --- clear_database wipes every row but leaves .org files on disk (last:
+    #     it nukes everything the earlier assertions built) ---
+    orgs_before = [f for f in os.listdir(org_folder) if f.endswith(".org")]
+    assert orgs_before, "there should be .org files before clearing"
+    cd = run_conversation([{"type": "clear_database"}], env)[0]
+    assert cd.get("ok"), f"clear_database failed: {cd}"
+    assert cd["data"]["cleared"] >= 1, "clear_database should report removed docs"
+    probe = db.connect(db_path)
+    try:
+        counts = {
+            t: probe.execute(f"SELECT COUNT(*) AS c FROM {t}").fetchone()["c"]
+            for t in ("documents", "annotations", "tags",
+                      "annotation_tags", "document_tags")
+        }
+    finally:
+        probe.close()
+    assert all(v == 0 for v in counts.values()), f"DB must be empty, got {counts}"
+    ga_cleared = run_conversation(
+        [{"type": "get_annotations", "url": url_clean}], env)[0]["data"]
+    assert ga_cleared["annotations"] == [], "a cleared DB returns no annotations"
+    orgs_after = [f for f in os.listdir(org_folder) if f.endswith(".org")]
+    assert set(orgs_after) == set(orgs_before), \
+        "clear_database must leave generated .org files on disk"
+    print("PASS: clear_database wipes the DB but keeps .org files")
+
     conn.close()
     print("\nALL DAEMON TESTS PASSED")
 

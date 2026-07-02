@@ -58,5 +58,41 @@ $("open-settings").addEventListener("click", () => {
   window.close();
 });
 
+// --- danger zone: clear the entire database (two-step, irreversible) ---
+
+function resetClearUI() {
+  $("clear-confirm").style.display = "none";
+  $("clear-db").style.display = "";
+}
+
+async function clearDatabase() {
+  const go = $("clear-go");
+  go.disabled = true;
+  const res = await send({ type: "clear_database" });
+  go.disabled = false;
+  resetClearUI();
+  const status = $("clear-status");
+  status.style.display = "block";
+  if (!res || !res.ok) {
+    status.style.color = "#f85149";
+    status.textContent =
+      res && res.error ? `Failed: ${res.error}` : "Failed to clear the database.";
+    return;
+  }
+  const n = res.data.cleared;
+  status.style.color = "";
+  status.textContent =
+    `Database cleared (${n} page${n === 1 ? "" : "s"} removed). ` +
+    `Reload any open tabs to see the effect.`;
+}
+
+$("clear-db").addEventListener("click", () => {
+  $("clear-db").style.display = "none";
+  $("clear-confirm").style.display = "block";
+  $("clear-status").style.display = "none";
+});
+$("clear-cancel").addEventListener("click", resetClearUI);
+$("clear-go").addEventListener("click", clearDatabase);
+
 refresh();
 initToggle();

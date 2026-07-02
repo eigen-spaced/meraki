@@ -102,18 +102,26 @@ function buildSidebar(shadow) {
   // Mutes highlighting (hides highlights + selection popup) but leaves the
   // sidebar open. The toolbar toggle is the master on/off that tears down the
   // whole on-page UI.
-  sidebar.querySelector('[data-role="highlights-toggle"]').addEventListener("change", (e) => {
-    emit("highlights:set", e.target.checked);
-  });
+  sidebar
+    .querySelector('[data-role="highlights-toggle"]')
+    .addEventListener("change", (e) => {
+      emit("highlights:set", e.target.checked);
+    });
   // Custom title / subtitle: textareas so long text wraps and the field grows
   // in height. Auto-save debounced; export falls back to the page title when the
   // custom title is blank. Enter is suppressed so the stored value stays a single
   // line (it becomes #+TITLE: / #+SUBTITLE:), while long text still soft-wraps.
   for (const role of ["doc-title", "doc-subtitle"]) {
     const ta = sidebar.querySelector(`[data-role="${role}"]`);
-    ta.addEventListener("input", () => { autoGrow(ta); scheduleDocMetaSave(); });
+    ta.addEventListener("input", () => {
+      autoGrow(ta);
+      scheduleDocMetaSave();
+    });
     ta.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); ta.blur(); }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        ta.blur();
+      }
     });
   }
   const tagAdd = sidebar.querySelector('[data-role="doc-tag-add"]');
@@ -127,36 +135,55 @@ function buildSidebar(shadow) {
   // Footer actions. Both freeze and delete are one-way and destroy the page's
   // live annotation set, so each uses a two-step confirm.
   sidebar.querySelector('[data-role="freeze"]').addEventListener("click", () => {
-    if (state.size === 0) { showToast("Nothing to freeze on this page yet."); return; }
+    if (state.size === 0) {
+      showToast("Nothing to freeze on this page yet.");
+      return;
+    }
     showFooterConfirm("freeze-confirm");
   });
   sidebar.querySelector('[data-role="delete-page"]').addEventListener("click", () => {
-    if (state.size === 0) { showToast("Nothing to delete on this page."); return; }
+    if (state.size === 0) {
+      showToast("Nothing to delete on this page.");
+      return;
+    }
     showFooterConfirm("delete-confirm");
   });
-  sidebar.querySelector('[data-role="freeze-cancel"]').addEventListener("click", resetFooter);
-  sidebar.querySelector('[data-role="delete-cancel"]').addEventListener("click", resetFooter);
+  sidebar
+    .querySelector('[data-role="freeze-cancel"]')
+    .addEventListener("click", resetFooter);
+  sidebar
+    .querySelector('[data-role="delete-cancel"]')
+    .addEventListener("click", resetFooter);
   sidebar.querySelector('[data-role="freeze-go"]').addEventListener("click", doFreeze);
-  sidebar.querySelector('[data-role="delete-go"]').addEventListener("click", doDeletePage);
+  sidebar
+    .querySelector('[data-role="delete-go"]')
+    .addEventListener("click", doDeletePage);
 
   // Missing-file reconcile modal (blocking): restore regenerates the .org from
   // the DB; delete throws the annotations away. Either resolves the lock.
-  sidebar.querySelector('[data-role="reconcile-restore"]').addEventListener("click", doRestore);
-  sidebar.querySelector('[data-role="reconcile-delete"]').addEventListener("click", doDeletePage);
+  sidebar
+    .querySelector('[data-role="reconcile-restore"]')
+    .addEventListener("click", doRestore);
+  sidebar
+    .querySelector('[data-role="reconcile-delete"]')
+    .addEventListener("click", doDeletePage);
 
   // Dismissible dirty-file info notice (non-blocking, unlike the modal).
-  sidebar.querySelector('[data-role="dirty-notice-close"]')
+  sidebar
+    .querySelector('[data-role="dirty-notice-close"]')
     .addEventListener("click", hideDirtyNotice);
 }
 
 // A persistent info banner in the footer (vs a toast that's easy to miss): the
 // generated .org has manual edits that the next write will overwrite.
 export function showDirtyNotice() {
-  if (sidebar) sidebar.querySelector('[data-role="dirty-notice"]').classList.remove("hidden");
+  if (sidebar)
+    sidebar.querySelector('[data-role="dirty-notice"]').classList.remove("hidden");
 }
 
 export function hideDirtyNotice() {
-  if (sidebar) sidebar.querySelector('[data-role="dirty-notice"]').classList.add("hidden");
+  if (sidebar)
+    sidebar.querySelector('[data-role="dirty-notice"]').classList.add("hidden");
 }
 
 function showFooterConfirm(role) {
@@ -185,7 +212,7 @@ async function doFreeze() {
     return;
   }
   resetFooter();
-  emit("document:reload");   // the page comes back blank; annotations archived
+  emit("document:reload"); // the page comes back blank; annotations archived
   showToast(`Page frozen → ${res.data.org_filename}. Starting fresh.`);
 }
 
@@ -199,8 +226,8 @@ async function doDeletePage() {
     return;
   }
   resetFooter();
-  hideReconcile();           // also resolves the missing-file modal, if open
-  emit("document:reload");   // the page comes back blank; annotations removed
+  hideReconcile(); // also resolves the missing-file modal, if open
+  emit("document:reload"); // the page comes back blank; annotations removed
   showToast("Deleted this page's annotations.");
 }
 
@@ -215,7 +242,7 @@ function buildSidebarTab(shadow) {
 }
 
 function toggleSidebar() {
-  if (session.reconciling) return;   // a blocking modal owns the sidebar
+  if (session.reconciling) return; // a blocking modal owns the sidebar
   sidebarOpen = !sidebarOpen;
   sidebar.classList.toggle("hidden", !sidebarOpen);
   // A textarea's scrollHeight is 0 while display:none, so (re)fit the title /
@@ -239,7 +266,7 @@ function refreshDocMetaSizes() {
 
 // Close + reset (used when the whole UI is torn down on deactivate).
 export function hideSidebar() {
-  hideReconcile();   // clear the lock so a re-activate re-evaluates cleanly
+  hideReconcile(); // clear the lock so a re-activate re-evaluates cleanly
   sidebarOpen = false;
   if (sidebar) sidebar.classList.add("hidden");
 }
@@ -252,7 +279,7 @@ export function showReconcile() {
   session.reconciling = true;
   sidebarOpen = true;
   sidebar.classList.remove("hidden");
-  resetFooter();   // don't leave a footer confirm open behind the overlay
+  resetFooter(); // don't leave a footer confirm open behind the overlay
   sidebar.querySelector('[data-role="reconcile"]').classList.remove("hidden");
 }
 
@@ -285,10 +312,12 @@ export function setHighlightsToggle(checked) {
 // Populate the title/subtitle inputs and page tags from a freshly loaded page.
 export function applyLoadedMeta({ customTitle, subtitle, pageTitle }) {
   sidebar.querySelector('[data-role="doc-title"]').value = customTitle || "";
+  // Placeholder is the full page title (untruncated) -- it's the default that
+  // export falls back to, and the textarea wraps/grows to show all of it.
   sidebar.querySelector('[data-role="doc-title"]').placeholder =
-    pageTitle ? `Custom title (default: ${truncate(pageTitle, 40)})` : "Custom title…";
+    pageTitle || "Custom title…";
   sidebar.querySelector('[data-role="doc-subtitle"]').value = subtitle || "";
-  refreshDocMetaSizes();   // fit heights to the freshly loaded text
+  refreshDocMetaSizes(); // fit heights to the freshly loaded text
   renderDocTags();
 }
 
@@ -298,7 +327,7 @@ export function applyLoadedMeta({ customTitle, subtitle, pageTitle }) {
 // compareDocumentPosition; orphaned annotations (no located node) sink to the
 // bottom.
 function nodeOf(entry) {
-  if (entry.el) return entry.el;                         // image
+  if (entry.el) return entry.el; // image
   if (entry.ranges[0]) return entry.ranges[0].startContainer; // text
   return null;
 }
@@ -311,7 +340,7 @@ function byPageOrder(a, b) {
   if (!nb) return -1;
   if (na === nb) return 0;
   const rel = na.compareDocumentPosition(nb);
-  if (rel & Node.DOCUMENT_POSITION_FOLLOWING) return -1;  // na precedes nb
+  if (rel & Node.DOCUMENT_POSITION_FOLLOWING) return -1; // na precedes nb
   if (rel & Node.DOCUMENT_POSITION_PRECEDING) return 1;
   return 0;
 }
@@ -327,7 +356,9 @@ function renderSidebarList() {
   for (const entry of entries) {
     const item = document.createElement("div");
     item.className = "annot-item" + (entry.orphaned ? " orphaned" : "");
-    const tags = (entry.data.tags || []).map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join("");
+    const tags = (entry.data.tags || [])
+      .map((t) => `<span class="chip">${escapeHtml(t)}</span>`)
+      .join("");
     if (entry.data.kind === "image") {
       item.innerHTML = `
         <button class="annot-del" title="Delete annotation">×</button>
@@ -360,7 +391,7 @@ function renderSidebarList() {
     }
     const del = item.querySelector(".annot-del");
     del.addEventListener("click", (e) => {
-      e.stopPropagation();          // don't trigger the item's scroll-to
+      e.stopPropagation(); // don't trigger the item's scroll-to
       emit("remove", entry.data.id);
     });
     list.appendChild(item);
@@ -369,12 +400,16 @@ function renderSidebarList() {
 
 function renderDocTags() {
   const chips = sidebar.querySelector('[data-role="doc-chips"]');
-  chips.innerHTML = doc.tags.map((t, i) =>
-    `<span class="chip removable" data-i="${i}">${escapeHtml(t)}<span class="x">×</span></span>`
-  ).join("");
+  chips.innerHTML = doc.tags
+    .map(
+      (t, i) =>
+        `<span class="chip removable" data-i="${i}">${escapeHtml(t)}<span class="x">×</span></span>`
+    )
+    .join("");
   chips.querySelectorAll(".removable").forEach((c) => {
     c.querySelector(".x").addEventListener("click", () =>
-      removeDocTag(parseInt(c.dataset.i, 10)));
+      removeDocTag(parseInt(c.dataset.i, 10))
+    );
   });
 }
 
@@ -406,9 +441,14 @@ function scheduleDocMetaSave() {
 }
 
 function persistDocMeta() {
-  if (docMetaTimer) { clearTimeout(docMetaTimer); docMetaTimer = null; }
-  const custom_title = sidebar.querySelector('[data-role="doc-title"]').value.trim() || null;
-  const subtitle = sidebar.querySelector('[data-role="doc-subtitle"]').value.trim() || null;
+  if (docMetaTimer) {
+    clearTimeout(docMetaTimer);
+    docMetaTimer = null;
+  }
+  const custom_title =
+    sidebar.querySelector('[data-role="doc-title"]').value.trim() || null;
+  const subtitle =
+    sidebar.querySelector('[data-role="doc-subtitle"]').value.trim() || null;
   return send({
     type: "set_document_meta",
     url: location.href,

@@ -5,17 +5,17 @@
   <style>
     :root { color-scheme: light dark; }
     body {
-      font: 13px/1.4 system-ui, sans-serif;
+      font: 15px/1.4 system-ui, sans-serif;
       width: 320px;
       margin: 0;
       padding: 14px;
     }
-    h1 { font-size: 14px; margin: 0 0 10px; }
+    h1 { font-size: 16px; margin: 0 0 10px; }
     .row { margin-bottom: 12px; }
     .label { font-weight: 600; margin-bottom: 4px; }
     .path {
       font-family: ui-monospace, monospace;
-      font-size: 12px;
+      font-size: 14px;
       word-break: break-all;
       background: rgba(127,127,127,0.15);
       padding: 6px 8px;
@@ -30,6 +30,8 @@
       cursor: pointer;
     }
     button:hover { background: rgba(127,127,127,0.15); }
+    button.danger { border-color: #f85149; color: #f85149; }
+    button.danger:hover { background: rgba(248,81,73,0.15); }
     .status { display: flex; align-items: center; gap: 6px; }
     .dot { width: 9px; height: 9px; border-radius: 50%; background: #999; }
     .dot.ok { background: #3fb950; }
@@ -55,6 +57,20 @@
     .switch input:checked + .slider { background: #3fb950; }
     .switch input:checked + .slider::before { transform: translateX(18px); }
     .switch input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
+
+    .danger-zone {
+      border-top: 1px solid rgba(127,127,127,0.25);
+      padding-top: 12px; margin-top: 4px;
+    }
+    .danger-zone .label { color: #f85149; }
+    .clear-confirm { margin-top: 8px; }
+    .clear-confirm .warn {
+      font-size: 14px; line-height: 1.45; margin: 0 0 8px;
+      background: rgba(248,81,73,0.10); border: 1px solid rgba(248,81,73,0.5);
+      border-radius: 6px; padding: 8px 10px;
+    }
+    .clear-confirm .warn code { font-family: ui-monospace, monospace; }
+    .clear-actions { display: flex; gap: 8px; }
   </style>
 </head>
 <body>
@@ -85,6 +101,24 @@
 
   <div class="row">
     <button id="open-settings">Settings…</button>
+  </div>
+
+  <div class="row danger-zone">
+    <div class="label">Danger zone</div>
+    <button id="clear-db" class="danger">Clear entire database…</button>
+    <div class="clear-confirm" id="clear-confirm" style="display:none;">
+      <p class="warn">
+        ⚠ This permanently deletes <b>every annotation on every page</b> from the
+        database. <b>It cannot be undone.</b> Generated <code>.org</code> files
+        already saved to disk are left as-is. This is mainly for debugging or
+        recovering from a broken database.
+      </p>
+      <div class="clear-actions">
+        <button id="clear-cancel">Cancel</button>
+        <button id="clear-go" class="danger">Delete everything</button>
+      </div>
+    </div>
+    <div class="muted" id="clear-status" style="display:none; margin-top:8px;"></div>
   </div>
 
   <div class="row muted" id="error" style="display:none; color:#f85149;"></div>

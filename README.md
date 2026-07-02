@@ -153,7 +153,7 @@ extension/
   manifest.json    MV3, strict_min_version 140.0
   background.js    service worker; relays messages via sendNativeMessage
   content.js       generated bundle (esbuild) — do not edit; source is src/
-  popup.html/js    daemon status + link to Settings; global enable/disable toggle
+  popup.html/js    daemon status + Settings link; enable/disable toggle; clear-db
   options.html/js  db path / org folder + annotation-notification setting
   vendor/          webextension-polyfill
 src/                content-script source, bundled to extension/content.js by esbuild
@@ -189,6 +189,12 @@ python3 -m daemon.db /tmp/annotations.db
 ```
 
 ## Debugging
+
+**Reset everything:** the toolbar popup has a **Danger zone → "Clear entire
+database"** (two-step confirm) that wipes every annotation for every page from
+SQLite — for debugging or recovering from a broken DB. It's **irreversible** and
+leaves generated `.org` files on disk as-is (they're derived; delete the org
+folder separately if you want a full reset). Reload open tabs afterward.
 
 The daemon logs to `~/.config/meraki-annotator/daemon.log` (native messaging hosts
 have no visible stdout/stderr). Check it first when a write seems to vanish —

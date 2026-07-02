@@ -272,6 +272,13 @@ def _handle_db(mtype: str, msg: dict, conn, cfg: dict) -> dict:
         return {"ok": True, "data": {
             "frozen_at": frozen_at, "org_filename": os.path.basename(path)}}
 
+    if mtype == "clear_database":
+        # Nuke everything (debug / reset). The .org files on disk stay; the DB is
+        # the source of truth and this only clears the DB.
+        n = db.clear_all(conn)
+        log(f"cleared database: removed {n} documents")
+        return {"ok": True, "data": {"cleared": n}}
+
     if mtype == "restore_document":
         # Regenerate a .org that was deleted on disk, from the DB (the source of
         # truth). The counterpart to delete_document in the missing-file modal.
