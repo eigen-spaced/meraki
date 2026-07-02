@@ -22,8 +22,18 @@ export function off(event, fn) {
 }
 
 // Fire synchronously. Iterate a copy so a handler may (un)subscribe mid-emit.
+// Each subscriber is isolated: one throwing handler must not stop the others,
+// otherwise (e.g.) a stale-Range exception in the highlight renderer would leave
+// the sidebar list un-updated -- exactly the kind of intermittent half-refresh
+// that's hard to reproduce. Errors are logged, not swallowed silently.
 export function emit(event, ...args) {
   const set = listeners.get(event);
   if (!set) return;
-  for (const fn of [...set]) fn(...args);
+  for (const fn of [...set]) {
+    try {
+      fn(...args);
+    } catch (e) {
+      console.error(`[meraki] "${event}" handler threw:`, e);
+    }
+  }
 }

@@ -11,6 +11,7 @@ import { state, changed } from "./store.js";
 import { rangesOverlap, pointInRange } from "./highlights.js";
 import { isInOurUI } from "./ui/root.js";
 import { showActionPopup, hideActionPopup } from "./ui/action-popup.js";
+import { showToast } from "./ui/toast.js";
 
 let lastSelectionRange = null;
 
@@ -66,7 +67,11 @@ async function createFromSelection(color, withNote) {
   const anchor = captureAnchor(range);
   hideActionPopup();
   if (!anchor) {
+    // Was silent (just a console.warn), so a failed anchor looked like "nothing
+    // happened". Surface it -- usually the selection started outside indexed
+    // text (an image, an element boundary).
     console.warn("[meraki] could not anchor selection");
+    showToast("Couldn't anchor that selection — try selecting within a paragraph.");
     return;
   }
   const res = await send({
@@ -81,7 +86,13 @@ async function createFromSelection(color, withNote) {
     note: null,
     tags: [],
   });
-  if (!res || !res.ok) { console.warn("[meraki] create failed", res); return; }
+  if (!res || !res.ok) {
+    console.warn("[meraki] create failed", res);
+    showToast(res && res.error
+      ? `Couldn't save that highlight: ${res.error}`
+      : "Couldn't save that highlight — the daemon didn't respond.");
+    return;
+  }
 
   const saved = range.cloneRange();
   state.set(res.data.id, {

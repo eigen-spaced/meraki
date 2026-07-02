@@ -8,7 +8,7 @@ import { COLOR_CSS } from "../constants.js";
 import { truncate, escapeHtml } from "../helpers.js";
 import { on, emit } from "../bus.js";
 import { send } from "../daemon.js";
-import { state, doc } from "../store.js";
+import { state, doc, changed } from "../store.js";
 import { session } from "../session.js";
 import { flashRange } from "../highlights.js";
 import { showToast } from "./toast.js";
@@ -212,7 +212,8 @@ async function doFreeze() {
     return;
   }
   resetFooter();
-  emit("document:reload"); // the page comes back blank; annotations archived
+  blankLocalView(); // update the view synchronously, don't rely on the reload
+  emit("document:reload"); // authoritative refresh (also resets title/subtitle)
   showToast(`Page frozen → ${res.data.org_filename}. Starting fresh.`);
 }
 
@@ -227,8 +228,19 @@ async function doDeletePage() {
   }
   resetFooter();
   hideReconcile(); // also resolves the missing-file modal, if open
-  emit("document:reload"); // the page comes back blank; annotations removed
+  blankLocalView(); // update the view synchronously, don't rely on the reload
+  emit("document:reload"); // authoritative refresh (also resets title/subtitle)
   showToast("Deleted this page's annotations.");
+}
+
+// Blank the annotation view immediately (highlights + list + page-tag chips), so
+// freeze/delete update the UI synchronously instead of depending on the
+// fire-and-forget "document:reload" completing -- which can intermittently race.
+function blankLocalView() {
+  state.clear();
+  doc.tags = [];
+  changed(); // repaint highlights + rebuild the (now empty) annotation list
+  renderDocTags(); // clear the page-tag chips (not driven by annotations:changed)
 }
 
 // A tiny always-present tab on the right edge to open the sidebar.
