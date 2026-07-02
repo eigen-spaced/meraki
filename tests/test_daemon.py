@@ -125,7 +125,10 @@ def main() -> None:
     conn = db.connect(db_path)
     doc_count = conn.execute("SELECT COUNT(*) c FROM documents").fetchone()["c"]
     assert doc_count == 1, f"expected 1 document, got {doc_count}"
-    print("PASS: SQLite has exactly one document row")
+    (ver,) = conn.execute("PRAGMA user_version").fetchone()
+    assert ver == db.SCHEMA_VERSION, \
+        f"init_db must stamp user_version={db.SCHEMA_VERSION}, got {ver}"
+    print("PASS: SQLite has exactly one document row (schema version stamped)")
 
     # --- org file exists, valid-ish, scoped to one file ---
     org_files = [f for f in os.listdir(org_folder) if f.endswith(".org")]

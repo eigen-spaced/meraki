@@ -82,37 +82,55 @@ def connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+# Bump when SCHEMA or _migrate changes. Stored in PRAGMA user_version so the
+# daemon can skip the (write-locking) schema+migrate work on every message once a
+# DB is current -- important because a fresh process runs per native message, so
+# bursts of messages would otherwise all contend on the same schema writes.
+SCHEMA_VERSION = 1
+
+
 def init_db(db_path: str) -> None:
-    """Create the schema if it doesn't exist, and migrate older DBs. Idempotent."""
+    """Create the schema if needed and migrate older DBs. Idempotent, and cheap
+    on an already-current DB (one PRAGMA read, then return)."""
     conn = connect(db_path)
     try:
+        (ver,) = conn.execute("PRAGMA user_version").fetchone()
+        if ver == SCHEMA_VERSION:
+            return   # already initialized + migrated; do no write-locking work
         conn.executescript(SCHEMA)
         _migrate(conn)
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
     finally:
         conn.close()
 
 
+def _add_column(conn: sqlite3.Connection, table: str, name: str,
+                coldef: str) -> None:
+    """ALTER TABLE ADD COLUMN, but tolerant of a concurrent process having just
+    added it. Fresh daemon processes can race on migration; the check alone is
+    check-then-act, so also swallow the 'duplicate column' loser."""
+    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if name in cols:
+        return
+    try:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {coldef}")
+    except sqlite3.OperationalError as e:
+        if "duplicate column name" not in str(e).lower():
+            raise
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns introduced after the first release. CREATE TABLE IF NOT
     EXISTS won't alter an existing table, so add missing columns explicitly."""
-    cols = {r["name"] for r in conn.execute("PRAGMA table_info(documents)")}
-    if "custom_title" not in cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN custom_title TEXT")
-    if "subtitle" not in cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN subtitle TEXT")
-    if "frozen_at" not in cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN frozen_at TEXT")
-    if "org_sha" not in cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN org_sha TEXT")
-    acols = {r["name"] for r in conn.execute("PRAGMA table_info(annotations)")}
-    if "position" not in acols:
-        conn.execute("ALTER TABLE annotations ADD COLUMN position INTEGER")
-    if "kind" not in acols:
-        conn.execute(
-            "ALTER TABLE annotations ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'")
-    if "image_file" not in acols:
-        conn.execute("ALTER TABLE annotations ADD COLUMN image_file TEXT")
+    _add_column(conn, "documents", "custom_title", "custom_title TEXT")
+    _add_column(conn, "documents", "subtitle", "subtitle TEXT")
+    _add_column(conn, "documents", "frozen_at", "frozen_at TEXT")
+    _add_column(conn, "documents", "org_sha", "org_sha TEXT")
+    _add_column(conn, "annotations", "position", "position INTEGER")
+    _add_column(conn, "annotations", "kind",
+                "kind TEXT NOT NULL DEFAULT 'text'")
+    _add_column(conn, "annotations", "image_file", "image_file TEXT")
 
 
 # --- document helpers -------------------------------------------------------

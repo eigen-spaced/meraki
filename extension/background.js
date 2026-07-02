@@ -9,19 +9,40 @@ import "./vendor/browser-polyfill.js";
 
 const HOST_NAME = "org.merakiannotator.daemon";
 
+// A fresh host process is spawned per message, so under a burst (e.g. a hard
+// refresh firing several messages at once) Firefox occasionally fails to launch
+// one -- sendNativeMessage throws before the daemon even starts, so nothing is
+// written and nothing lands in daemon.log. Those failures are transient, so
+// retry a couple of times with a short backoff before giving up. Retrying is
+// safe: a launch failure means the message never reached the daemon, so no
+// partial write happened.
+const DAEMON_RETRIES = 3;
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function callDaemon(message) {
-  try {
-    const response = await browser.runtime.sendNativeMessage(HOST_NAME, message);
-    // The daemon always answers { ok, data?, error? }. Pass it through.
-    return response;
-  } catch (e) {
-    // Thrown when the host isn't installed / crashed before responding. The
-    // extension API only surfaces a generic message here; the real reason is
-    // logged by Firefox to the Browser Console. Dump everything we can see.
-    console.error("[meraki] sendNativeMessage threw:", e, "name=", e && e.name,
-      "message=", e && e.message, "stack=", e && e.stack);
-    return { ok: false, error: `daemon unreachable: ${e && e.message ? e.message : e}` };
+  let lastErr;
+  for (let attempt = 1; attempt <= DAEMON_RETRIES; attempt++) {
+    try {
+      // The daemon always answers { ok, data?, error? }. Pass it through.
+      return await browser.runtime.sendNativeMessage(HOST_NAME, message);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[meraki] sendNativeMessage failed (attempt ${attempt}/` +
+        `${DAEMON_RETRIES}) for ${message && message.type}:`, e && e.message ? e.message : e);
+      if (attempt < DAEMON_RETRIES) await delay(120 * attempt);
+    }
   }
+  // Exhausted retries. The real reason is in Firefox's Browser Console; surface
+  // what we can to the content script (which now shows it in a toast).
+  console.error("[meraki] sendNativeMessage gave up:", lastErr, "name=",
+    lastErr && lastErr.name, "stack=", lastErr && lastErr.stack);
+  return {
+    ok: false,
+    error: `daemon unreachable: ${lastErr && lastErr.message ? lastErr.message : lastErr}`,
+  };
 }
 
 // Fetch an image's bytes here rather than in the content script: MV3 subjects
