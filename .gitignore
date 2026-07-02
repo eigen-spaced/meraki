@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ruff_cache/
+
+# Local config / databases / org output (user data, not source). The daemon,
+# its launcher, and org output all live outside the repo (~/.local/share/meraki
+# and ~/org), so nothing generated lands in-tree — these guard stray local copies.
+*.db
+*.db-wal
+*.db-shm
+
+# Build output (generated from src/ by esbuild) + harness artifacts
+node_modules/
+extension/content.js
+debug/web-ext.log
+debug/moz-native.log*
+
+# OS / editor cruft
+.DS_Store
+*.swp

@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Meraki",
+  "version": "0.2.0",
+  "description": "Highlight and annotate any web page; export to org-mode.",
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "meraki-annotator@meraki.local",
+      "strict_min_version": "140.0"
+    }
+  },
+
+  "permissions": [
+    "storage",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Meraki"
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["vendor/browser-polyfill.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
