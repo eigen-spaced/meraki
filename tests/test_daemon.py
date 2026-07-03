@@ -205,6 +205,21 @@ def main() -> None:
     assert "a diagram worth keeping" in org_img, "note must appear in the export"
     print("PASS: image annotation writes a file and links it from the export")
 
+    # --- get_image serves a saved image back as a data URL (sidebar preview) ---
+    gi = run_conversation([
+        {"type": "get_image", "file": image_file},
+        {"type": "get_image", "file": "does-not-exist.png"},
+        {"type": "get_image", "file": "../../etc/passwd"},   # traversal neutralized
+    ], env)
+    assert gi[0].get("ok"), f"get_image failed: {gi[0]}"
+    assert gi[0]["data"]["data_url"].startswith("data:image/png;base64,"), \
+        "get_image must return a png data URL"
+    assert gi[0]["data"]["data_url"].endswith(tiny_png), \
+        "get_image must return the stored bytes"
+    assert not gi[1].get("ok"), "get_image on a missing file must fail"
+    assert not gi[2].get("ok"), "get_image must stay inside the images folder"
+    print("PASS: get_image serves a saved image as a data URL")
+
     # --- deleting an image annotation removes its file from disk ---
     run_conversation(
         [{"type": "delete_annotation", "id": img_resps[0]["data"]["id"]}], env)

@@ -1,10 +1,12 @@
 // Activation lifecycle: build the shadow-DOM UI on first activate, load stored
 // annotations, and mute / tear down on toggle. Owns the highlight mute
 // coordinator (setHighlightsEnabled, driven by the sidebar switch via
-// "highlights:set"). The master on/off is a global setting in
-// browser.storage.local, written by the popup and mirrored here live.
+// "highlights:set"). On/off is per-site: a domain is off until you enable it
+// from the popup, which records the choice in browser.storage.local
+// ("siteState") -- mirrored here live so toggling reacts on the open page.
 
 import { send } from "./daemon.js";
+import { siteKey, hostBlocked } from "./site-rules.js";
 import { buildTextIndex, globalOffsetOf } from "./text-index.js";
 import { reanchor } from "./anchoring.js";
 import { on } from "./bus.js";
@@ -29,18 +31,19 @@ import {
   hideDirtyNotice,
 } from "./ui/sidebar.js";
 import { showToast, dismissToast } from "./ui/toast.js";
-import { reanchorImage } from "./images.js";
+import { reanchorImage, retryImageAnchors, orphanedImageCount } from "./images.js";
 
 let uiBuilt = false;
 
-// Master on/off: a single global setting (browser.storage.local "enabled",
-// default OFF) that persists across refresh, tab close/open, and browser
-// restart and applies to every page. The popup is the only writer; content
-// scripts read it on load and react to changes via storage.onChanged (init).
-async function readEnabled() {
+// Per-site on/off: browser.storage.local "siteState" is a { [siteKey]: true }
+// map of domains the user has explicitly enabled. Absent key => OFF (the
+// default for every unseen site). Persists across refresh, tab close/open, and
+// browser restart. The popup is the only writer; content scripts read it on
+// load and react to changes via storage.onChanged (init).
+async function readSiteEnabled(key) {
   try {
-    const { enabled } = await browser.storage.local.get("enabled");
-    return enabled === true;   // default OFF
+    const { siteState } = await browser.storage.local.get("siteState");
+    return !!(siteState && siteState[key] === true);
   } catch (_) {
     return false;
   }
@@ -150,6 +153,48 @@ async function loadExisting() {
   if (Object.keys(positions).length) {
     send({ type: "set_annotation_positions", url: location.href, positions });
   }
+
+  // Diagrams (Mermaid/D3) and lazy images often render *after* this pass, so
+  // any image annotation for them just came back orphaned. Watch the DOM and
+  // re-anchor them once they appear.
+  watchForLateImages();
+}
+
+// Re-anchor coordinator for late-rendering images. A MutationObserver (debounced)
+// retries anchoring the orphaned image annotations whenever the DOM grows, until
+// they all re-link or a deadline passes -- so we don't observe a busy SPA forever.
+let anchorObserver = null;
+let anchorDebounce = null;
+let anchorStopAt = 0;
+
+function stopAnchorWatch() {
+  if (anchorObserver) { anchorObserver.disconnect(); anchorObserver = null; }
+  if (anchorDebounce) { clearTimeout(anchorDebounce); anchorDebounce = null; }
+}
+
+function retryLateImages() {
+  anchorDebounce = null;
+  const { relinked, positions } = retryImageAnchors(buildTextIndex());
+  if (relinked.length) {
+    changed();   // repaint the sidebar (drops the "not on page" tag, shows thumb)
+    if (Object.keys(positions).length) {
+      send({ type: "set_annotation_positions", url: location.href, positions });
+    }
+  }
+  if (orphanedImageCount() === 0 || Date.now() > anchorStopAt) stopAnchorWatch();
+}
+
+function watchForLateImages() {
+  stopAnchorWatch();
+  if (!session.active || orphanedImageCount() === 0) return;
+  anchorStopAt = Date.now() + 12000;   // give up after ~12s of no matches
+  anchorObserver = new MutationObserver(() => {
+    if (Date.now() > anchorStopAt) { stopAnchorWatch(); return; }
+    if (!anchorDebounce) anchorDebounce = setTimeout(retryLateImages, 250);
+  });
+  anchorObserver.observe(document.body || document.documentElement, {
+    childList: true, subtree: true,
+  });
 }
 
 async function activate() {
@@ -184,6 +229,7 @@ function setHighlightsEnabled(enabled) {
 function deactivate() {
   if (!session.active) return;
   session.active = false;
+  stopAnchorWatch();
   hideActionPopup();
   hideCommentPopup();
   hideImagePopup();
@@ -193,19 +239,27 @@ function deactivate() {
 }
 
 async function applyEnabledState() {
-  const enabled =
-    (await readEnabled()) ||
-    document.documentElement.hasAttribute("data-meraki-autoactivate");
-  if (enabled) activate();
-  else nudgeIfAnnotated();   // off: quietly nudge if the page has annotations
+  const key = siteKey(location.hostname);
+  const forcedOn = document.documentElement.hasAttribute("data-meraki-autoactivate");
+  if ((await readSiteEnabled(key)) || forcedOn) {
+    activate();
+    return;
+  }
+  // Off on this site. Blocklisted domains (social/video/audio) are fully
+  // suppressed -- no sidebar, no nudge -- unless explicitly enabled above.
+  // Everywhere else, quietly nudge if the page has hidden annotations.
+  if (hostBlocked(location.hostname)) return;
+  nudgeIfAnnotated();
 }
 
 export function init() {
-  // Mirror the global master switch live: toggling it in the popup (or any
-  // tab) flips every open page in step.
+  // Mirror the per-site switch live: toggling this domain in the popup (from
+  // this tab or another) activates/deactivates every open page on it in step.
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes.enabled) return;
-    if (changes.enabled.newValue) activate();
+    if (area !== "local" || !changes.siteState) return;
+    const key = siteKey(location.hostname);
+    const on = !!(changes.siteState.newValue && changes.siteState.newValue[key] === true);
+    if (on) activate();
     else deactivate();
   });
 

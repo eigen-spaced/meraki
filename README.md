@@ -95,11 +95,15 @@ URL with `make dev URL=https://github.com`. Run `make` alone to list all targets
 
 There are two independent switches:
 
-- **Master enable/disable** (toolbar popup) — a single global setting, off by
-  default. Persists across refresh, tab close/open, and browser restart, and
-  applies to every page; toggling it updates all open tabs live. While off, a
-  page is untouched — except a small timed toast nudges you if the page has
-  saved annotations (toggle that off under Settings).
+- **Per-site enable/disable** (toolbar popup) — off by default on every site.
+  The toggle turns Meraki on for the **current site's domain** and remembers it
+  (in `storage.local` "siteState"), so it stays on across that site's pages and
+  browser restarts; new/unseen sites start off. Toggling updates all open tabs
+  on that domain live. While off, a page is untouched — except a small timed
+  toast nudges you if the page has saved annotations (toggle that off under
+  Settings). A built-in **blocklist** (`src/site-rules.js`: facebook, youtube,
+  spotify, bandcamp, twitch) stays off with the side tab hidden and no nudge —
+  still overridable via the popup toggle if you really want it there.
 - **Annotation mute** (sidebar switch) — hides highlights and suppresses the
   selection popup while keeping the sidebar open. Only present when enabled.
 
@@ -109,7 +113,13 @@ Once enabled:
 - **Highlight + note:** select text → "+ note" → write a note, add comma-tags.
 - **Annotate an image:** click an `<img>` → write a required note (+ tags). The
   image file is copied into the org folder's `images/` and linked from the
-  export; the sidebar shows a thumbnail.
+  export; the sidebar shows a thumbnail. `<img>` SVGs are flattened to PNG on
+  capture so they render inline in org/Emacs (falls back to the raw SVG if it
+  can't rasterise).
+- **Annotate a diagram:** click a diagram-sized inline `<svg>` (Mermaid, D3,
+  etc.) → same note flow. The live SVG is serialized and rasterised to PNG in the
+  page. Small inline icons are left clickable (size-gated). Re-anchored across
+  reloads by a size + text-label signature, since inline SVGs have no URL.
 - **Edit/delete:** click an existing highlight → the comment popup opens.
 - **Sidebar:** click the ✍ tab on the right edge. Lists all annotations for the
   page in document order (click one to scroll to it and flash), and has a
@@ -153,7 +163,7 @@ extension/
   manifest.json    MV3, strict_min_version 140.0
   background.js    service worker; relays messages via sendNativeMessage
   content.js       generated bundle (esbuild) — do not edit; source is src/
-  popup.html/js    daemon status + Settings link; enable/disable toggle; clear-db
+  popup.html/js    daemon status + Settings link; per-site enable toggle; clear-db
   options.html/js  db path / org folder + annotation-notification setting
   vendor/          webextension-polyfill
 src/                content-script source, bundled to extension/content.js by esbuild
@@ -161,6 +171,7 @@ src/                content-script source, bundled to extension/content.js by es
   bus.js           tiny pub/sub that decouples the modules below
   store.js         annotation state + doc tags; emits "annotations:changed"
   session.js       active / highlightsEnabled flags
+  site-rules.js    per-site on/off keying + blocklist (mirrored in popup.js)
   constants.js     colors + tuning; helpers.js  small string utils
   daemon.js        send() relay to background; styles.js  shadow-DOM CSS
   text-index.js    page text indexing; anchoring.js  text-quote (re)anchoring

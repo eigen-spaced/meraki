@@ -357,6 +357,25 @@ function byPageOrder(a, b) {
   return 0;
 }
 
+// Lazily fetch a saved image's bytes from the daemon and swap it in for the
+// placeholder. Caches the data URL on the entry so later re-renders skip the
+// round-trip. `item` may be detached by a re-render before this resolves --
+// harmless, the cached _thumb makes the next render show it immediately.
+async function hydrateThumb(entry, item) {
+  if (entry.data._thumb || !entry.data.image_file) return;
+  const res = await send({ type: "get_image", file: entry.data.image_file });
+  if (!res || !res.ok || !res.data || !res.data.data_url) return;
+  entry.data._thumb = res.data.data_url;
+  const ph = item.querySelector(".annot-thumb");
+  if (ph) {
+    const img = document.createElement("img");
+    img.className = "annot-thumb";
+    img.alt = "";
+    img.src = entry.data._thumb;
+    ph.replaceWith(img);
+  }
+}
+
 function renderSidebarList() {
   const list = sidebar.querySelector('[data-role="list"]');
   const entries = [...state.values()].sort(byPageOrder);
@@ -372,13 +391,25 @@ function renderSidebarList() {
       .map((t) => `<span class="chip">${escapeHtml(t)}</span>`)
       .join("");
     if (entry.data.kind === "image") {
+      // Inline-svg annotations (quote tagged "svg:") have no loadable page URL,
+      // so their thumbnail is the saved PNG fetched from the daemon (cached on
+      // the entry as _thumb); until it arrives, show a labelled placeholder.
+      const isSvg = typeof entry.data.quote === "string"
+        && entry.data.quote.startsWith("svg:");
+      const thumb = entry.data._thumb
+        ? `<img class="annot-thumb" src="${escapeHtml(entry.data._thumb)}" alt="" />`
+        : isSvg
+          ? `<div class="annot-thumb annot-thumb-svg">◈ diagram</div>`
+          : `<img class="annot-thumb" src="${escapeHtml(entry.data.quote)}" alt="" />`;
+      const gone = isSvg ? "diagram not on page" : "image not on page";
       item.innerHTML = `
         <button class="annot-del" title="Delete annotation">×</button>
-        <img class="annot-thumb" src="${escapeHtml(entry.data.quote)}" alt="" />
+        ${thumb}
         ${entry.data.note ? `<div class="annot-note">${escapeHtml(entry.data.note)}</div>` : ""}
         <div class="annot-tags">${tags}</div>
-        ${entry.orphaned ? `<div class="orphan-tag">⚠ image not on page</div>` : ""}
+        ${entry.orphaned ? `<div class="orphan-tag">⚠ ${gone}</div>` : ""}
       `;
+      if (isSvg && !entry.data._thumb) hydrateThumb(entry, item);
       item.addEventListener("click", () => {
         if (!entry.el) return;
         const rect = entry.el.getBoundingClientRect();

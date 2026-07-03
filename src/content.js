@@ -16,7 +16,7 @@ import { hideActionPopup } from "./ui/action-popup.js";
 import { hideCommentPopup } from "./ui/comment-popup.js";
 import { hideImagePopup } from "./ui/image-popup.js";
 import { handleSelection, openEditorAtPoint } from "./selection.js";
-import { handleImageClick } from "./images.js";
+import { handleImageClick, annotatableSvg, handleSvgClick } from "./images.js";
 import { init } from "./lifecycle.js";
 
 (() => {
@@ -33,7 +33,8 @@ import { init } from "./lifecycle.js";
 
   // Click an image → annotate it. Capture phase + stopPropagation so we get in
   // ahead of the page's own image handlers (links, lightboxes), which the user
-  // opted to suppress while the annotator is on.
+  // opted to suppress while the annotator is on. Inline <svg> diagrams (Mermaid
+  // etc.) are annotatable too, gated on size so small icon-buttons still work.
   document.addEventListener("click", (e) => {
     if (!session.active || !session.highlightsEnabled || session.reconciling) return;
     if (isInOurUI(e.target)) return;
@@ -41,6 +42,13 @@ import { init } from "./lifecycle.js";
       e.preventDefault();
       e.stopPropagation();
       handleImageClick(e.target);
+      return;
+    }
+    const svg = annotatableSvg(e.target);
+    if (svg) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSvgClick(svg);
     }
   }, true);
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import mimetypes
 import os
 import struct
 import sys
@@ -110,6 +111,27 @@ def handle(msg: dict) -> dict:
         cfg["org_folder"] = path
         config.save_config(cfg)
         return {"ok": True, "data": {"org_folder": path}}
+
+    if mtype == "get_image":
+        # Serve a saved annotation image back as a data URL so the sidebar can
+        # preview it -- content scripts can't read the org folder off disk. Used
+        # for inline-svg diagrams (no page URL to load) but works for any image.
+        # basename() defends against path traversal (the name is DB-sourced, but
+        # cheap to be safe); we only ever read from the images/ subfolder.
+        name = os.path.basename(msg.get("file") or "")
+        if not name:
+            return {"ok": False, "error": "no image file"}
+        path = os.path.join(cfg["org_folder"], "images", name)
+        if not os.path.isfile(path):
+            return {"ok": False, "error": "image not found"}
+        try:
+            with open(path, "rb") as f:
+                raw = f.read()
+        except OSError as e:
+            return {"ok": False, "error": f"cannot read image: {e}"}
+        mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        b64 = base64.b64encode(raw).decode("ascii")
+        return {"ok": True, "data": {"data_url": f"data:{mime};base64,{b64}"}}
 
     # Everything below needs the DB.
     db.init_db(cfg["db_path"])

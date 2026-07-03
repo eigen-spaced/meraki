@@ -44,11 +44,12 @@ export function buildImagePopup(shadow) {
   });
 }
 
-export function openImageCreate(img, onSave) {
+export function openImageCreate(img, onSave, previewSrc) {
   mode = "create";
   createCb = onSave;
   editingId = null;
-  fill(img.currentSrc || img.src, "", []);
+  // Inline svgs have no URL, so callers pass a rasterised data-URL preview.
+  fill(previewSrc || img.currentSrc || img.src, "", []);
   show({ save: true, saveEnabled: false, del: false });
   position(img.getBoundingClientRect());
 }
@@ -67,7 +68,12 @@ export function openImageEditor(id) {
 }
 
 function fill(src, note, tags) {
-  imagePopup.querySelector(".thumb").src = src;
+  // A raw "svg:" signature isn't a loadable image (an inline-svg annotation
+  // being edited); show no thumbnail rather than a broken one.
+  const thumb = imagePopup.querySelector(".thumb");
+  const usable = src && !src.startsWith("svg:");
+  thumb.classList.toggle("hidden", !usable);
+  thumb.src = usable ? src : "";
   imagePopup.querySelector(".note-input").value = note;
   imagePopup.querySelector(".tags-input").value = tags.join(", ");
 }

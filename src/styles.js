@@ -105,6 +105,10 @@ export const SHADOW_CSS = `
       display: block; max-width: 100%; max-height: 120px; object-fit: contain;
       background: #12151c; border-radius: 6px; margin-bottom: 2px;
     }
+    .annot-thumb-svg {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      height: 48px; font-size: 14px; color: #9aa4b2; letter-spacing: 0.02em;
+    }
     .mini-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
     .annot-note { font-size: 14px; opacity: 0.85; margin-top: 5px; font-style: italic; }
     .annot-tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }

@@ -31,23 +31,69 @@ async function refresh() {
   $("error").style.display = "none";
 }
 
-// --- master enable/disable switch ---
-// Global setting in browser.storage.local; every content script watches it and
-// activates/deactivates in step.
+// --- per-site enable/disable switch ---
+// On/off is remembered per domain in browser.storage.local "siteState" (a
+// { [siteKey]: true } map); every content script on that domain watches it and
+// activates/deactivates in step. Hand-synced copy of src/site-rules.js -- this
+// is a classic script and can't import the module. Keep them in step.
+const BLOCKLIST = [
+  "facebook.com",
+  "youtube.com",
+  "spotify.com",
+  "bandcamp.com",
+  "twitch.tv",
+];
 
-function setToggleLabel(on) {
-  $("toggle-label").textContent = on ? "Enabled" : "Disabled";
+function siteKey(hostname) {
+  return (hostname || "").toLowerCase().replace(/^www\./, "");
+}
+
+function hostBlocked(hostname) {
+  const h = (hostname || "").toLowerCase();
+  return BLOCKLIST.some((d) => h === d || h.endsWith("." + d));
+}
+
+let currentKey = null;
+let currentBlocked = false;
+
+function renderToggle(on) {
+  $("toggle-label").textContent = on ? "On for this site" : "Off for this site";
+  const site = $("toggle-site");
+  site.textContent = currentBlocked
+    ? `${currentKey} · off by default here`
+    : currentKey;
 }
 
 async function initToggle() {
   const toggle = $("annotate-toggle");
-  const { enabled } = await browser.storage.local.get("enabled");
-  const on = enabled === true;   // default off
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  let host = null;
+  try {
+    host = tab && tab.url ? new URL(tab.url).hostname : null;
+  } catch (_) { /* non-web URL */ }
+
+  if (!host) {
+    // about:, view-source:, the extension's own pages, etc. -- nothing to toggle.
+    toggle.disabled = true;
+    $("toggle-label").textContent = "Not available here";
+    $("toggle-site").textContent = "";
+    return;
+  }
+
+  currentKey = siteKey(host);
+  currentBlocked = hostBlocked(host);
+  const { siteState } = await browser.storage.local.get("siteState");
+  const on = !!(siteState && siteState[currentKey] === true);
   toggle.checked = on;
-  setToggleLabel(on);
-  toggle.addEventListener("change", () => {
-    browser.storage.local.set({ enabled: toggle.checked });
-    setToggleLabel(toggle.checked);
+  renderToggle(on);
+
+  toggle.addEventListener("change", async () => {
+    const { siteState: cur } = await browser.storage.local.get("siteState");
+    const next = { ...(cur || {}) };
+    if (toggle.checked) next[currentKey] = true;
+    else delete next[currentKey];   // absent => off; keeps the map tidy
+    await browser.storage.local.set({ siteState: next });
+    renderToggle(toggle.checked);
   });
 }
 
