@@ -19,6 +19,11 @@
     "<all_urls>"
   ],
 
+  "icons": {
+    "48": "icons/meraki-turnedpage-manuscript-48.png",
+    "128": "icons/meraki-turnedpage-manuscript-128.png"
+  },
+
   "background": {
     "scripts": ["background.js"],
     "type": "module"
@@ -26,13 +31,28 @@
 
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Meraki"
+    "default_title": "Meraki",
+    "default_icon": {
+      "16": "icons/meraki-turnedpage-manuscript-16.png",
+      "32": "icons/meraki-turnedpage-manuscript-32.png"
+    },
+    "theme_icons": [
+      { "light": "icons/meraki-turnedpage-manuscript-16.png", "dark": "icons/meraki-turnedpage-ink-16.png", "size": 16 },
+      { "light": "icons/meraki-turnedpage-manuscript-32.png", "dark": "icons/meraki-turnedpage-ink-32.png", "size": 32 }
+    ]
   },
 
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
   },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*.woff2"],
+      "matches": ["<all_urls>"]
+    }
+  ],
 
   "content_scripts": [
     {

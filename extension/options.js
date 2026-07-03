@@ -9,7 +9,7 @@ function send(message) {
 }
 
 function setStatus(ok, text) {
-  $("dot").className = "dot " + (ok ? "ok" : "bad");
+  $("dot").className = "mk-dot-status " + (ok ? "ok" : "bad");
   $("status-text").textContent = text;
 }
 
@@ -50,8 +50,12 @@ $("save-org").addEventListener("click", () =>
 // setting), read by the content script before showing its off-state toast.
 async function loadPrefs() {
   try {
-    const { notifyOnAnnotations } = await browser.storage.local.get("notifyOnAnnotations");
+    const { notifyOnAnnotations, theme } = await browser.storage.local.get(
+      ["notifyOnAnnotations", "theme"]);
     $("notify-toggle").checked = notifyOnAnnotations !== false;   // default on
+    const active = theme || "auto";
+    const radio = document.querySelector(`input[name="theme"][value="${active}"]`);
+    if (radio) radio.checked = true;
   } catch (_) {
     $("notify-toggle").checked = true;
   }
@@ -59,6 +63,14 @@ async function loadPrefs() {
 
 $("notify-toggle").addEventListener("change", () => {
   browser.storage.local.set({ notifyOnAnnotations: $("notify-toggle").checked });
+});
+
+// Theme override (auto | manuscript | ink). Saved instantly; theme-page.js and
+// every content script apply it live via storage.onChanged.
+document.querySelectorAll('input[name="theme"]').forEach((r) => {
+  r.addEventListener("change", () => {
+    if (r.checked) browser.storage.local.set({ theme: r.value });
+  });
 });
 
 refresh();

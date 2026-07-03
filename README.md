@@ -107,6 +107,14 @@ There are two independent switches:
 - **Annotation mute** (sidebar switch) — hides highlights and suppresses the
   selection popup while keeping the sidebar open. Only present when enabled.
 
+**Appearance.** An editorial two-theme design (**Manuscript** light / **Ink** dark)
+with a warm cream/ink palette, serif accents (Lora) and mono details (JetBrains
+Mono, both bundled under `extension/fonts/`). Theme follows the OS colour scheme by
+default; override it under Settings → Theme (`auto` / `manuscript` / `ink`, stored
+in `storage.local` "theme"). Tokens live in `src/styles.js` (shadow UI) and
+`extension/mk-page.css` (popup + options); the plugin icon set is in
+`extension/icons/`.
+
 Once enabled:
 
 - **Highlight:** select text → pick a color from the floating popup.
@@ -172,6 +180,7 @@ src/                content-script source, bundled to extension/content.js by es
   store.js         annotation state + doc tags; emits "annotations:changed"
   session.js       active / highlightsEnabled flags
   site-rules.js    per-site on/off keying + blocklist (mirrored in popup.js)
+  theme.js         resolves Manuscript/Ink theme (auto|manuscript|ink)
   constants.js     colors + tuning; helpers.js  small string utils
   daemon.js        send() relay to background; styles.js  shadow-DOM CSS
   text-index.js    page text indexing; anchoring.js  text-quote (re)anchoring

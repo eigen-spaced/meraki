@@ -13,20 +13,29 @@ export function showToast(message, timeout = 6000) {
   const el = document.createElement("div");
   toastEl = el;
   el.textContent = message;
+  // This can appear with no shadow UI (the off-state nudge), so it can't rely on
+  // the themed wrapper or bundled fonts -- pick the editorial palette by the OS
+  // scheme and use system fonts (the design's declared fallback).
+  const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const bg = dark ? "#241E15" : "#FBF7EE";
+  const fg = dark ? "#F0E7D3" : "#201A12";
+  const border = dark ? "#3B3325" : "#E0D6BE";
+  const shadow = dark ? "0 16px 44px rgba(0,0,0,0.55)" : "0 12px 32px rgba(80,62,30,0.18)";
   el.style.cssText = [
     "all: initial",
     "position: fixed",
-    "bottom: 20px",
-    "right: 20px",
+    "bottom: 24px",
+    "left: 50%",
+    "transform: translateX(-50%)",
     "z-index: 2147483647",
-    "max-width: 300px",
-    "padding: 12px 14px",
-    "background: #1f2430",
-    "color: #e6e6e6",
-    "font: 13px/1.45 system-ui, sans-serif",
-    "border: 1px solid #3a4152",
-    "border-radius: 8px",
-    "box-shadow: 0 4px 18px rgba(0,0,0,0.35)",
+    "max-width: 420px",
+    "padding: 12px 16px",
+    `background: ${bg}`,
+    `color: ${fg}`,
+    "font: 13px/1.45 -apple-system, 'Helvetica Neue', sans-serif",
+    `border: 1px solid ${border}`,
+    "border-radius: 10px",
+    `box-shadow: ${shadow}`,
     "opacity: 0",
     "transition: opacity 0.2s ease",
     "pointer-events: none", // never intercept clicks meant for the page

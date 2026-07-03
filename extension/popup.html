@@ -2,131 +2,70 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="mk-page.css">
   <style>
-    :root { color-scheme: light dark; }
-    body {
-      font: 15px/1.4 system-ui, sans-serif;
-      width: 320px;
-      margin: 0;
-      padding: 14px;
-    }
-    h1 { font-size: 16px; margin: 0 0 10px; }
-    .row { margin-bottom: 12px; }
-    .label { font-weight: 600; margin-bottom: 4px; }
-    .path {
-      font-family: ui-monospace, monospace;
-      font-size: 14px;
-      word-break: break-all;
-      background: rgba(127,127,127,0.15);
-      padding: 6px 8px;
-      border-radius: 4px;
-    }
-    button {
-      font: inherit;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(127,127,127,0.5);
-      background: transparent;
-      cursor: pointer;
-    }
-    button:hover { background: rgba(127,127,127,0.15); }
-    button.danger { border-color: #f85149; color: #f85149; }
-    button.danger:hover { background: rgba(248,81,73,0.15); }
-    .status { display: flex; align-items: center; gap: 6px; }
-    .dot { width: 9px; height: 9px; border-radius: 50%; background: #999; }
-    .dot.ok { background: #3fb950; }
-    .dot.bad { background: #f85149; }
-    .muted { opacity: 0.7; }
-
-    .toggle-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 12px; border: 1px solid rgba(127,127,127,0.35);
-      border-radius: 8px; margin-bottom: 14px;
-    }
-    .toggle-row .label { font-weight: 600; margin: 0; }
-    .switch { position: relative; width: 40px; height: 22px; flex: none; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; inset: 0; cursor: pointer;
-      background: rgba(127,127,127,0.4); border-radius: 22px; transition: 0.15s;
-    }
-    .slider::before {
-      content: ""; position: absolute; height: 16px; width: 16px;
-      left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.15s;
-    }
-    .switch input:checked + .slider { background: #3fb950; }
-    .switch input:checked + .slider::before { transform: translateX(18px); }
-    .switch input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
-
-    .danger-zone {
-      border-top: 1px solid rgba(127,127,127,0.25);
-      padding-top: 12px; margin-top: 4px;
-    }
-    .danger-zone .label { color: #f85149; }
-    .clear-confirm { margin-top: 8px; }
-    .clear-confirm .warn {
-      font-size: 14px; line-height: 1.45; margin: 0 0 8px;
-      background: rgba(248,81,73,0.10); border: 1px solid rgba(248,81,73,0.5);
-      border-radius: 6px; padding: 8px 10px;
-    }
-    .clear-confirm .warn code { font-family: ui-monospace, monospace; }
-    .clear-actions { display: flex; gap: 8px; }
+    body { width: 320px; padding: 16px; }
+    .mk-head { margin-bottom: 14px; }
   </style>
 </head>
 <body>
-  <h1>Meraki Annotator</h1>
+  <div class="mk-head">
+    <img class="icon-manuscript" src="icons/meraki-turnedpage-manuscript-48.png" alt="">
+    <img class="icon-ink" src="icons/meraki-turnedpage-ink-48.png" alt="">
+    <h1>Meraki Annotator</h1>
+  </div>
 
-  <div class="toggle-row">
+  <div class="mk-site-card">
     <div>
-      <div class="label" id="toggle-label">Off for this site</div>
-      <div class="muted" id="toggle-site" style="font-size:13px; margin-top:2px; word-break:break-all;"></div>
+      <div class="mk-site-label">Active on this site</div>
+      <div class="mk-site-host" id="toggle-site"></div>
     </div>
-    <label class="switch">
-      <input type="checkbox" id="annotate-toggle">
-      <span class="slider"></span>
-    </label>
+    <button class="mk-toggle" role="switch" aria-checked="false"
+            id="annotate-toggle" aria-label="Enable Meraki on this site"></button>
   </div>
 
-  <div class="row status">
-    <span class="dot" id="dot"></span>
-    <span id="status-text">Checking daemon…</span>
+  <div class="mk-status">
+    <span class="mk-dot-status" id="dot"></span>
+    <span id="status-text">checking daemon…</span>
   </div>
 
-  <div class="row">
-    <div class="label">Database</div>
-    <div class="path" id="db-path">—</div>
+  <div class="mk-field">
+    <div class="mk-label">:database:</div>
+    <div class="mk-well" id="db-path">—</div>
   </div>
 
-  <div class="row">
-    <div class="label">Org output folder</div>
-    <div class="path" id="org-folder">—</div>
+  <div class="mk-field">
+    <div class="mk-label">:org-output:</div>
+    <div class="mk-well" id="org-folder">—</div>
   </div>
 
-  <div class="row">
-    <button id="open-settings">Settings…</button>
-  </div>
+  <button class="mk-btn-ghost mk-full" id="open-settings">⚙ Settings</button>
 
-  <div class="row danger-zone">
-    <div class="label">Danger zone</div>
-    <button id="clear-db" class="danger">Clear entire database…</button>
-    <div class="clear-confirm" id="clear-confirm" style="display:none;">
-      <p class="warn">
+  <hr class="mk-dashed">
+
+  <div class="mk-danger-zone">
+    <div class="mk-label mk-label--danger">:danger:</div>
+    <button class="mk-btn-danger mk-full" id="clear-db">🗑 Clear entire database…</button>
+    <div class="hidden" id="clear-confirm" style="margin-top:10px;">
+      <p class="mk-warn">
         ⚠ This permanently deletes <b>every annotation on every page</b> from the
         database. <b>It cannot be undone.</b> Generated <code>.org</code> files
-        already saved to disk are left as-is. This is mainly for debugging or
-        recovering from a broken database.
+        already saved to disk are left as-is. Mainly for debugging or recovering
+        from a broken database.
       </p>
-      <div class="clear-actions">
-        <button id="clear-cancel">Cancel</button>
-        <button id="clear-go" class="danger">Delete everything</button>
+      <div class="mk-row">
+        <button class="mk-btn-ghost mk-full" id="clear-cancel">Cancel</button>
+        <button class="mk-btn-danger mk-full" id="clear-go">Delete everything</button>
       </div>
     </div>
-    <div class="muted" id="clear-status" style="display:none; margin-top:8px;"></div>
+    <div class="mk-muted hidden" id="clear-status" style="margin-top:8px;"></div>
   </div>
 
-  <div class="row muted" id="error" style="display:none; color:#f85149;"></div>
+  <div class="mk-err hidden" id="error"></div>
 
   <script src="vendor/browser-polyfill.js"></script>
+  <script src="theme-page.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,9 +1,10 @@
-// Popup for image annotations: a thumbnail, a required note, and tags. Two
-// modes -- create (Save enabled once a note is typed; the actual persist is a
+// Popup for image / diagram annotations: a thumbnail, a required note, and tags.
+// Two modes -- create (Save enabled once a note is typed; the actual persist is a
 // callback into images.js so this stays UI-only) and edit (auto-saves note/tags
-// like the comment popup, with Delete). Images aren't highlighted, so there's no
-// color or quote block here.
+// like a live field, with Delete). Images aren't highlighted, so there's no
+// colour or excerpt block here.
 
+import { ICONS } from "../styles.js";
 import { send } from "../daemon.js";
 import { emit } from "../bus.js";
 import { state, changed } from "../store.js";
@@ -14,28 +15,38 @@ let createCb = null;     // create mode: (note, tags) => void
 let editingId = null;    // edit mode
 let saveTimer = null;
 
-export function buildImagePopup(shadow) {
+export function buildImagePopup(scope) {
   imagePopup = document.createElement("div");
-  imagePopup.className = "popup image-popup hidden";
+  imagePopup.className = "mk-panel mk-editor mk-fixed hidden";
   imagePopup.innerHTML = `
-    <img class="thumb" alt="" />
-    <textarea class="note-input" placeholder="Add a note… (required)"></textarea>
-    <input class="tags-input" placeholder="tags, comma separated" />
-    <div class="popup-actions">
-      <span class="save-status" data-role="status"></span>
-      <button data-role="save">Save</button>
-      <button data-role="delete" class="danger">Delete</button>
+    <img class="mk-thumb" data-role="thumb" alt="" />
+    <textarea class="mk-input mk-input--note" data-role="note"
+              placeholder="Add a note… (required)"></textarea>
+    <input class="mk-input mk-input--tags" data-role="tags"
+           placeholder=":tags: comma, separated" />
+    <div class="mk-panel-footer">
+      <button class="mk-btn-icon mk-btn-icon--danger mk-tooltip" data-role="delete"
+              data-tip="Delete" aria-label="Delete annotation">${ICONS.trash}</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="mk-status" data-role="status"></span>
+        <button class="mk-btn-primary" data-role="save">Save <span aria-hidden="true">⏎</span></button>
+      </div>
     </div>
   `;
-  shadow.appendChild(imagePopup);
+  scope.appendChild(imagePopup);
 
-  const noteEl = imagePopup.querySelector(".note-input");
+  const noteEl = imagePopup.querySelector('[data-role="note"]');
   const saveBtn = imagePopup.querySelector('[data-role="save"]');
   noteEl.addEventListener("input", () => {
     if (mode === "create") saveBtn.disabled = !noteEl.value.trim();
     else scheduleEditSave();
   });
-  imagePopup.querySelector(".tags-input").addEventListener("input", () => {
+  noteEl.addEventListener("keydown", (e) => {
+    if (mode === "create" && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault(); commitCreate();
+    }
+  });
+  imagePopup.querySelector('[data-role="tags"]').addEventListener("input", () => {
     if (mode === "edit") scheduleEditSave();
   });
   saveBtn.addEventListener("click", commitCreate);
@@ -70,12 +81,12 @@ export function openImageEditor(id) {
 function fill(src, note, tags) {
   // A raw "svg:" signature isn't a loadable image (an inline-svg annotation
   // being edited); show no thumbnail rather than a broken one.
-  const thumb = imagePopup.querySelector(".thumb");
+  const thumb = imagePopup.querySelector('[data-role="thumb"]');
   const usable = src && !src.startsWith("svg:");
   thumb.classList.toggle("hidden", !usable);
   thumb.src = usable ? src : "";
-  imagePopup.querySelector(".note-input").value = note;
-  imagePopup.querySelector(".tags-input").value = tags.join(", ");
+  imagePopup.querySelector('[data-role="note"]').value = note;
+  imagePopup.querySelector('[data-role="tags"]').value = tags.join(", ");
 }
 
 function show({ save, saveEnabled = true, del }) {
@@ -87,7 +98,7 @@ function show({ save, saveEnabled = true, del }) {
 }
 
 function position(rect) {
-  const h = imagePopup.offsetHeight || 220;
+  const h = imagePopup.offsetHeight || 240;
   let top = rect.bottom + 8;
   if (top + h > window.innerHeight - 4) top = Math.max(4, rect.top - h - 8);
   let left = Math.max(4, rect.left);
@@ -97,13 +108,13 @@ function position(rect) {
 }
 
 function readTags() {
-  return imagePopup.querySelector(".tags-input").value
+  return imagePopup.querySelector('[data-role="tags"]').value
     .split(",").map((t) => t.trim()).filter(Boolean);
 }
 
 function commitCreate() {
   if (mode !== "create") return;
-  const note = imagePopup.querySelector(".note-input").value.trim();
+  const note = imagePopup.querySelector('[data-role="note"]').value.trim();
   if (!note) return;               // required
   const tags = readTags();
   const cb = createCb;
@@ -123,7 +134,7 @@ async function flushEditSave() {
   if (!id) return;
   const entry = state.get(id);
   if (!entry) return;
-  const note = imagePopup.querySelector(".note-input").value;
+  const note = imagePopup.querySelector('[data-role="note"]').value;
   const tags = readTags();
   entry.data.note = note;
   entry.data.tags = tags;

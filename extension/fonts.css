@@ -1,0 +1,11 @@
+/* Bundled web fonts for the extension's own pages (popup, options). The content
+   script registers these at document level from JS instead (see ui/root.js). */
+@font-face { font-family: 'Lora'; src: url('fonts/Lora-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Lora'; src: url('fonts/Lora-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Lora'; src: url('fonts/Lora-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Lora'; src: url('fonts/Lora-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Lora'; src: url('fonts/Lora-500-italic.woff2') format('woff2'); font-weight: 500; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Lora'; src: url('fonts/Lora-600-italic.woff2') format('woff2'); font-weight: 600; font-style: italic; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('fonts/JetBrainsMono-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('fonts/JetBrainsMono-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('fonts/JetBrainsMono-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }

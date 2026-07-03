@@ -1,118 +1,136 @@
-// The editor popup for an existing annotation: note textarea, tags, color
-// swatches, delete. Note/tags typing auto-saves (debounced); color changes save
-// immediately. Opens in response to the "editor:open" bus event; deletions from
-// the sidebar arrive as "remove".
+// The editor popup for an existing annotation: colour dots, the selected-text
+// excerpt, a note textarea, tags, delete, and an explicit Save. Note/tags are
+// committed on Save (button, or Cmd/Ctrl+Enter in the note / Enter in tags) --
+// not auto-saved. Colour changes still persist immediately so the on-page
+// highlight updates as feedback. Opens on "editor:open"; deletions arrive as
+// "remove".
 
-import { COLORS, COLOR_CSS } from "../constants.js";
+import { COLORS, HL_VAR } from "../constants.js";
+import { ICONS } from "../styles.js";
+import { truncate, escapeHtml } from "../helpers.js";
 import { on } from "../bus.js";
 import { send } from "../daemon.js";
 import { state, changed } from "../store.js";
 
 let commentPopup = null;
 let editingId = null;
-let saveTimer = null;
 
-export function buildCommentPopup(shadow) {
+export function buildCommentPopup(scope) {
   commentPopup = document.createElement("div");
-  commentPopup.className = "popup comment-popup hidden";
+  commentPopup.className = "mk-panel mk-editor mk-fixed hidden";
   commentPopup.innerHTML = `
-    <div class="swatches" data-role="colors"></div>
-    <textarea class="note-input" placeholder="Add a note… (saves automatically)"></textarea>
-    <input class="tags-input" placeholder="tags, comma separated" />
-    <div class="popup-actions">
-      <span class="save-status" data-role="status"></span>
-      <button data-role="delete" class="danger">Delete</button>
+    <div class="mk-dotrow" data-role="colors"></div>
+    <div class="mk-excerpt" data-role="excerpt"></div>
+    <textarea class="mk-input mk-input--note" data-role="note"
+              placeholder="Add a note…"></textarea>
+    <input class="mk-input mk-input--tags" data-role="tags"
+           placeholder=":tags: comma, separated" />
+    <div class="mk-panel-footer">
+      <button class="mk-btn-icon mk-btn-icon--danger mk-tooltip" data-role="delete"
+              data-tip="Delete" aria-label="Delete annotation">${ICONS.trash}</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="mk-status" data-role="status"></span>
+        <button class="mk-btn-primary" data-role="save">Save <span aria-hidden="true">⏎</span></button>
+      </div>
     </div>
   `;
   const colorRow = commentPopup.querySelector('[data-role="colors"]');
   colorRow.innerHTML = COLORS.map(
-    (c) => `<button class="swatch" data-color="${c}" style="background:${COLOR_CSS[c]}" title="${c}"></button>`
+    (c) => `<button class="mk-dot mk-dot--sm" data-color="${c}" ` +
+      `style="--dot: var(${HL_VAR[c]})" aria-label="${c}" title="${c}"></button>`,
   ).join("");
-  shadow.appendChild(commentPopup);
+  scope.appendChild(commentPopup);
 
-  // Auto-save: note/tags typing is debounced; color changes save immediately
-  // (see selectCommentColor). Attach once -- the popup element is reused.
-  commentPopup.querySelector(".note-input").addEventListener("input", scheduleSave);
-  commentPopup.querySelector(".tags-input").addEventListener("input", scheduleSave);
+  commentPopup.querySelector('[data-role="save"]').addEventListener("click", () => save(true));
+  commentPopup.querySelector('[data-role="delete"]').addEventListener("click", deleteCurrent);
+
+  // Cmd/Ctrl+Enter saves from the (multi-line) note; plain Enter stays a newline.
+  commentPopup.querySelector('[data-role="note"]').addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(false); }
+  });
+  // The tags field is single-line: plain Enter saves.
+  commentPopup.querySelector('[data-role="tags"]').addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); save(false); }
+  });
+  // Typing invalidates the "Saved" status so it never looks stale.
+  for (const role of ["note", "tags"]) {
+    commentPopup.querySelector(`[data-role="${role}"]`).addEventListener("input", () => setStatus(""));
+  }
 }
 
 export function openCommentPopup(id, rect) {
   const entry = state.get(id);
   if (!entry) return;
   editingId = id;
-  commentPopup.querySelector(".note-input").value = entry.data.note || "";
-  commentPopup.querySelector(".tags-input").value = (entry.data.tags || []).join(", ");
-  commentPopup.querySelectorAll(".swatch").forEach((s) => {
-    s.classList.toggle("selected", s.dataset.color === entry.data.color);
+  commentPopup.querySelector('[data-role="note"]').value = entry.data.note || "";
+  commentPopup.querySelector('[data-role="tags"]').value = (entry.data.tags || []).join(", ");
+  const excerpt = commentPopup.querySelector('[data-role="excerpt"]');
+  excerpt.textContent = truncate(entry.data.quote || "", 160);
+  excerpt.classList.toggle("hidden", !entry.data.quote);
+  applyColorSelection(entry.data.color);
+  commentPopup.querySelectorAll(".mk-dot").forEach((s) => {
     s.onclick = () => selectCommentColor(s.dataset.color);
   });
-  commentPopup.dataset.color = entry.data.color;
-  setSaveStatus("");
-
-  commentPopup.querySelector('[data-role="delete"]').onclick = deleteCurrent;
+  setStatus("");
 
   commentPopup.classList.remove("hidden");
-  // Viewport coordinates (position:fixed). Place below the highlight, or
-  // above if it would overflow the bottom edge.
-  const h = commentPopup.offsetHeight || 160;
+  // Viewport coordinates (position:fixed). Place below the highlight, or above
+  // if it would overflow the bottom edge.
+  const h = commentPopup.offsetHeight || 200;
   let top = rect.bottom + 8;
   if (top + h > window.innerHeight - 4) top = Math.max(4, rect.top - h - 8);
   let left = Math.max(4, rect.left);
   left = Math.min(left, window.innerWidth - commentPopup.offsetWidth - 4);
   commentPopup.style.top = `${top}px`;
   commentPopup.style.left = `${left}px`;
+  commentPopup.querySelector('[data-role="note"]').focus();
+}
+
+function applyColorSelection(color) {
+  commentPopup.dataset.color = color;
+  commentPopup.style.setProperty("--mk-hl-current", `var(${HL_VAR[color] || HL_VAR.yellow})`);
+  commentPopup.querySelectorAll(".mk-dot").forEach((s) =>
+    s.setAttribute("aria-pressed", String(s.dataset.color === color)));
 }
 
 function selectCommentColor(color) {
-  commentPopup.dataset.color = color;
-  commentPopup.querySelectorAll(".swatch").forEach((s) =>
-    s.classList.toggle("selected", s.dataset.color === color));
-  flushSave();   // color changes persist immediately (and re-render the highlight)
+  applyColorSelection(color);
+  save(false);   // colour changes persist immediately (and re-render the highlight)
 }
 
 export function hideCommentPopup() {
   if (!commentPopup) return;
-  if (editingId) flushSave();   // persist any pending edits before closing
   commentPopup.classList.add("hidden");
   editingId = null;
 }
 
-function scheduleSave() {
-  if (saveTimer) clearTimeout(saveTimer);
-  setSaveStatus("Saving…");
-  saveTimer = setTimeout(flushSave, 400);
-}
-
-async function flushSave() {
-  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+async function save(showSaved) {
   const id = editingId;                 // capture synchronously
   if (!id) return;
   const entry = state.get(id);
   if (!entry) return;
-  const note = commentPopup.querySelector(".note-input").value;
+  const note = commentPopup.querySelector('[data-role="note"]').value;
   const color = commentPopup.dataset.color;
-  const tags = commentPopup.querySelector(".tags-input").value
+  const tags = commentPopup.querySelector('[data-role="tags"]').value
     .split(",").map((t) => t.trim()).filter(Boolean);
-  // Update local state + re-render first so the UI feels instant; the note
-  // text lives in the popup, which re-rendering the sidebar/highlights leaves
-  // untouched, so typing focus is preserved.
+  // Update local state + re-render first so the UI feels instant; the note text
+  // lives in the popup, which re-rendering leaves untouched, so focus is kept.
   entry.data.note = note;
   entry.data.color = color;
   entry.data.tags = tags;
   changed();
+  setStatus("Saving…");
   const res = await send({ type: "update_annotation", id, note, color, tags });
-  if (!res || !res.ok) { console.warn("[meraki] update failed", res); return; }
-  setSaveStatus("Saved");
+  if (!res || !res.ok) { console.warn("[meraki] update failed", res); setStatus("Save failed"); return; }
+  if (showSaved) setStatus("Saved"); else setStatus("");
 }
 
-function setSaveStatus(text) {
+function setStatus(text) {
   const el = commentPopup && commentPopup.querySelector('[data-role="status"]');
   if (!el) return;
   el.textContent = text;
-  if (setSaveStatus._t) clearTimeout(setSaveStatus._t);
-  if (text === "Saved") {
-    setSaveStatus._t = setTimeout(() => { el.textContent = ""; }, 1500);
-  }
+  if (setStatus._t) clearTimeout(setStatus._t);
+  if (text === "Saved") setStatus._t = setTimeout(() => { el.textContent = ""; }, 1500);
 }
 
 function deleteCurrent() {
@@ -122,11 +140,8 @@ function deleteCurrent() {
 // Delete one annotation by id -- reached from the popup's Delete button
 // (directly) and the sidebar's per-item delete (via the "remove" bus event).
 async function removeAnnotation(id) {
-  // If it's the one open in the editor, close WITHOUT flushing a save (that
-  // would resurrect the row we're about to delete).
   if (editingId === id) {
     editingId = null;
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
     if (commentPopup) commentPopup.classList.add("hidden");
   }
   state.delete(id);

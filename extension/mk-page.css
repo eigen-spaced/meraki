@@ -1,0 +1,136 @@
+/* Shared editorial styling for the extension's own pages (popup + options).
+   Themes are switched via data-meraki-theme on <html> (see theme-page.js). The
+   token blocks mirror src/styles.js -- keep them in step. */
+
+:root[data-meraki-theme="manuscript"] {
+  --mk-panel:#FBF7EE; --mk-inset:#F4EDDC; --mk-card:#FFFDF6;
+  --mk-border:#E0D6BE; --mk-border-soft:#E8DFC9; --mk-border-hover:#CFC3A6;
+  --mk-ink:#201A12; --mk-body:#3A3325; --mk-muted:#5C5442;
+  --mk-faint:#A79C87; --mk-label:#8A7F6A;
+  --mk-accent:#A8402F; --mk-accent-hover:#8F3324; --mk-on-accent:#F8F1E0;
+  --mk-danger:#A8402F; --mk-danger-tint:rgba(168,64,47,0.12); --mk-success:#7E9E63;
+}
+:root[data-meraki-theme="ink"] {
+  --mk-panel:#241E15; --mk-inset:#1B1610; --mk-card:#2A2318;
+  --mk-border:#3B3325; --mk-border-soft:#322B1F; --mk-border-hover:#4A4130;
+  --mk-ink:#F0E7D3; --mk-body:#DCD2B8; --mk-muted:#C9BFA6;
+  --mk-faint:#6E6450; --mk-label:#8B8168;
+  --mk-accent:#D9A441; --mk-accent-hover:#E5B45A; --mk-on-accent:#1B1610;
+  --mk-danger:#C65D48; --mk-danger-tint:rgba(198,93,72,0.15); --mk-success:#8AAC6E;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--mk-panel);
+  color: var(--mk-ink);
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.hidden { display: none !important; }
+
+.mk-serif { font-family: Lora, Georgia, serif; }
+.mk-mono  { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.mk-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px; letter-spacing: 0.04em; color: var(--mk-label);
+  margin-bottom: 6px;
+}
+.mk-label--danger { color: var(--mk-danger); }
+
+h1 { font-family: Lora, Georgia, serif; font-size: 18px; font-weight: 600; margin: 0; }
+
+/* ---- wordmark header --------------------------------------------------- */
+.mk-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.mk-head img { width: 30px; height: 30px; border-radius: 7px; display: block; }
+.mk-head .icon-manuscript, .mk-head .icon-ink { display: none; }
+:root[data-meraki-theme="manuscript"] .mk-head .icon-manuscript { display: block; }
+:root[data-meraki-theme="ink"] .mk-head .icon-ink { display: block; }
+
+/* ---- toggle switch (button role=switch) -------------------------------- */
+.mk-toggle {
+  width: 40px; height: 22px; border-radius: 11px; border: none; cursor: pointer; flex: none;
+  background: var(--mk-border-hover); position: relative; padding: 0; transition: background 160ms;
+}
+.mk-toggle[aria-checked="true"] { background: var(--mk-success); }
+.mk-toggle::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--mk-panel);
+  transition: transform 160ms cubic-bezier(0.34,1.56,0.64,1);
+}
+.mk-toggle[aria-checked="true"]::after { transform: translateX(18px); }
+.mk-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---- site toggle card -------------------------------------------------- */
+.mk-site-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--mk-inset); border: 1px solid var(--mk-border);
+  border-radius: 10px; padding: 11px 13px; margin-bottom: 14px;
+}
+.mk-site-label { font-weight: 600; font-size: 14px; }
+.mk-site-host { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--mk-muted); margin-top: 2px; word-break: break-all; }
+
+/* ---- status row -------------------------------------------------------- */
+.mk-status { display: flex; align-items: center; gap: 7px; margin-bottom: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--mk-muted); }
+.mk-dot-status { width: 9px; height: 9px; border-radius: 50%; background: var(--mk-faint); flex: none; }
+.mk-dot-status.ok { background: var(--mk-success); }
+.mk-dot-status.bad { background: var(--mk-danger); }
+
+/* ---- fields / path wells ---------------------------------------------- */
+.mk-field { margin-bottom: 13px; }
+.mk-well {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px;
+  background: var(--mk-inset); border: 1px solid var(--mk-border);
+  border-radius: 8px; padding: 8px 10px; word-break: break-all; color: var(--mk-body);
+}
+.mk-input {
+  width: 100%; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px;
+  background: var(--mk-inset); border: 1px solid var(--mk-border); border-radius: 8px;
+  padding: 9px 10px; color: var(--mk-ink); outline: none;
+}
+.mk-input:focus { border-color: var(--mk-accent); }
+
+/* ---- buttons ----------------------------------------------------------- */
+.mk-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px;
+  color: var(--mk-muted); background: transparent; border: 1px solid var(--mk-border);
+  border-radius: 8px; padding: 9px 14px; cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.mk-btn-ghost:hover { background: var(--mk-inset); border-color: var(--mk-border-hover); color: var(--mk-ink); }
+.mk-btn-primary {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; font-weight: 600;
+  background: var(--mk-accent); color: var(--mk-on-accent);
+  border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer;
+  transition: background 120ms, transform 120ms;
+}
+.mk-btn-primary:hover { background: var(--mk-accent-hover); transform: translateY(-1px); }
+.mk-btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px;
+  color: var(--mk-danger); background: transparent;
+  border: 1px solid var(--mk-danger); border-radius: 8px; padding: 9px 14px; cursor: pointer;
+  transition: background 120ms;
+}
+.mk-btn-danger:hover { background: var(--mk-danger-tint); }
+.mk-full { width: 100%; }
+
+/* ---- dashed divider + danger zone ------------------------------------- */
+.mk-dashed { border: none; border-top: 1px dashed var(--mk-border-hover); margin: 16px 0 12px; }
+.mk-danger-zone .mk-warn {
+  font-size: 12.5px; line-height: 1.5; margin: 0 0 9px;
+  background: var(--mk-danger-tint); border: 1px solid var(--mk-danger);
+  border-radius: 8px; padding: 9px 11px; color: var(--mk-danger);
+}
+.mk-warn code { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.mk-row { display: flex; gap: 8px; }
+.mk-muted { color: var(--mk-muted); font-size: 12.5px; }
+.mk-err { color: var(--mk-danger); font-size: 12.5px; margin-top: 8px; }
+
+/* ---- radio group (theme picker on options) ---------------------------- */
+.mk-radios { display: flex; flex-direction: column; gap: 8px; }
+.mk-radio { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 14px; }
+.mk-radio input { accent-color: var(--mk-accent); width: 15px; height: 15px; }
+.mk-radio .mk-radio-note { color: var(--mk-muted); font-size: 12px; }

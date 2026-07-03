@@ -3,12 +3,14 @@
 // injected into the page -- never DOM nodes. This module owns the paint; it
 // subscribes to "annotations:changed" and rebuilds from current state.
 
-import { COLORS, COLOR_CSS } from "./constants.js";
+import { COLORS, HL } from "./constants.js";
 import { on } from "./bus.js";
 import { state } from "./store.js";
 import { session } from "./session.js";
 
-// Inject the per-color ::highlight() rules once.
+// Inject the per-color ::highlight() rules once. Each colour has a plain variant
+// (wash tint) and a "-noted" variant that adds a 2px underline in the solid dot
+// colour, so annotations carrying a note read differently on the page.
 export function ensureHighlightStyles() {
   if (document.getElementById("meraki-highlight-styles")) return;
   if (!("highlights" in CSS)) {
@@ -19,26 +21,34 @@ export function ensureHighlightStyles() {
   style.id = "meraki-highlight-styles";
   let css = "";
   for (const c of COLORS) {
-    css += `::highlight(meraki-${c}) { background-color: ${COLOR_CSS[c]}; }\n`;
+    css += `::highlight(meraki-${c}) { background-color: ${HL[c].wash}; }\n`;
+    css += `::highlight(meraki-${c}-noted) { background-color: ${HL[c].wash};` +
+      ` text-decoration: underline; text-decoration-color: ${HL[c].dot};` +
+      ` text-decoration-thickness: 2px; text-underline-offset: 2px; }\n`;
   }
-  css += `::highlight(meraki-flash) { background-color: rgba(255,140,0,0.85); color: #000; }\n`;
+  css += `::highlight(meraki-flash) { background-color: rgba(216,164,65,0.9); color: #201a12; }\n`;
   style.textContent = css;
   document.head.appendChild(style);
 }
 
-// Rebuild every CSS.highlights registry entry from current state.ranges.
+// Rebuild every CSS.highlights registry entry from current state.ranges. Noted
+// and un-noted ranges of the same colour go to separate registries so only the
+// noted ones get the underline.
 export function renderAllHighlights() {
   if (!("highlights" in CSS)) return;
   if (!session.highlightsEnabled) { clearHighlights(); return; }
   ensureHighlightStyles();
   for (const c of COLORS) {
-    const hl = new Highlight();
+    const plain = new Highlight();
+    const noted = new Highlight();
     for (const entry of state.values()) {
       if (entry.orphaned) continue;
       if (entry.data.color !== c) continue;
-      for (const r of entry.ranges) hl.add(r);
+      const target = entry.data.note ? noted : plain;
+      for (const r of entry.ranges) target.add(r);
     }
-    CSS.highlights.set(`meraki-${c}`, hl);
+    CSS.highlights.set(`meraki-${c}`, plain);
+    CSS.highlights.set(`meraki-${c}-noted`, noted);
   }
 }
 
@@ -51,7 +61,10 @@ export function flashRange(range) {
 
 export function clearHighlights() {
   if (!("highlights" in CSS)) return;
-  for (const c of COLORS) CSS.highlights.delete(`meraki-${c}`);
+  for (const c of COLORS) {
+    CSS.highlights.delete(`meraki-${c}`);
+    CSS.highlights.delete(`meraki-${c}-noted`);
+  }
   CSS.highlights.delete("meraki-flash");
 }
 

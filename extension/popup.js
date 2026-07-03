@@ -1,5 +1,5 @@
-// Popup: show db_path / org folder + daemon status, allow changing the DB
-// location via a native file picker driven by the daemon (§2.1).
+// Popup: per-site enable toggle, daemon status + db/org paths, Settings link,
+// and a two-step "clear entire database" escape hatch.
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,32 +10,32 @@ function send(message) {
 function showError(msg) {
   const el = $("error");
   el.textContent = msg;
-  el.style.display = "block";
+  el.classList.remove("hidden");
 }
 
 function setStatus(ok, text) {
-  $("dot").className = "dot " + (ok ? "ok" : "bad");
+  $("dot").className = "mk-dot-status " + (ok ? "ok" : "bad");
   $("status-text").textContent = text;
 }
 
 async function refresh() {
   const res = await send({ type: "get_db_path" });
   if (!res || !res.ok) {
-    setStatus(false, "Daemon not reachable");
+    setStatus(false, "daemon not reachable");
     showError(res && res.error ? res.error : "No response from daemon.");
     return;
   }
-  setStatus(true, "Daemon connected");
+  setStatus(true, "daemon connected");
   $("db-path").textContent = res.data.db_path || "(not set)";
   $("org-folder").textContent = res.data.org_folder || "(not set)";
-  $("error").style.display = "none";
+  $("error").classList.add("hidden");
 }
 
 // --- per-site enable/disable switch ---
 // On/off is remembered per domain in browser.storage.local "siteState" (a
-// { [siteKey]: true } map); every content script on that domain watches it and
-// activates/deactivates in step. Hand-synced copy of src/site-rules.js -- this
-// is a classic script and can't import the module. Keep them in step.
+// { [siteKey]: true } map); content scripts on that domain watch it and
+// activate/deactivate in step. Hand-synced copy of src/site-rules.js -- this is
+// a classic script and can't import the module. Keep them in step.
 const BLOCKLIST = [
   "facebook.com",
   "youtube.com",
@@ -57,9 +57,8 @@ let currentKey = null;
 let currentBlocked = false;
 
 function renderToggle(on) {
-  $("toggle-label").textContent = on ? "On for this site" : "Off for this site";
-  const site = $("toggle-site");
-  site.textContent = currentBlocked
+  $("annotate-toggle").setAttribute("aria-checked", String(on));
+  $("toggle-site").textContent = currentBlocked
     ? `${currentKey} · off by default here`
     : currentKey;
 }
@@ -75,30 +74,28 @@ async function initToggle() {
   if (!host) {
     // about:, view-source:, the extension's own pages, etc. -- nothing to toggle.
     toggle.disabled = true;
-    $("toggle-label").textContent = "Not available here";
-    $("toggle-site").textContent = "";
+    toggle.setAttribute("aria-checked", "false");
+    $("toggle-site").textContent = "not available here";
     return;
   }
 
   currentKey = siteKey(host);
   currentBlocked = hostBlocked(host);
   const { siteState } = await browser.storage.local.get("siteState");
-  const on = !!(siteState && siteState[currentKey] === true);
-  toggle.checked = on;
-  renderToggle(on);
+  renderToggle(!!(siteState && siteState[currentKey] === true));
 
-  toggle.addEventListener("change", async () => {
+  toggle.addEventListener("click", async () => {
+    const next = toggle.getAttribute("aria-checked") !== "true";
     const { siteState: cur } = await browser.storage.local.get("siteState");
-    const next = { ...(cur || {}) };
-    if (toggle.checked) next[currentKey] = true;
-    else delete next[currentKey];   // absent => off; keeps the map tidy
-    await browser.storage.local.set({ siteState: next });
-    renderToggle(toggle.checked);
+    const nextState = { ...(cur || {}) };
+    if (next) nextState[currentKey] = true;
+    else delete nextState[currentKey];   // absent => off; keeps the map tidy
+    await browser.storage.local.set({ siteState: nextState });
+    renderToggle(next);
   });
 }
 
-// DB path / org folder are edited on the full options page now (no native
-// picker). openOptionsPage() respects the manifest's options_ui.
+// DB path / org folder are edited on the full options page.
 $("open-settings").addEventListener("click", () => {
   browser.runtime.openOptionsPage();
   window.close();
@@ -107,8 +104,8 @@ $("open-settings").addEventListener("click", () => {
 // --- danger zone: clear the entire database (two-step, irreversible) ---
 
 function resetClearUI() {
-  $("clear-confirm").style.display = "none";
-  $("clear-db").style.display = "";
+  $("clear-confirm").classList.add("hidden");
+  $("clear-db").classList.remove("hidden");
 }
 
 async function clearDatabase() {
@@ -118,9 +115,9 @@ async function clearDatabase() {
   go.disabled = false;
   resetClearUI();
   const status = $("clear-status");
-  status.style.display = "block";
+  status.classList.remove("hidden");
   if (!res || !res.ok) {
-    status.style.color = "#f85149";
+    status.style.color = "var(--mk-danger)";
     status.textContent =
       res && res.error ? `Failed: ${res.error}` : "Failed to clear the database.";
     return;
@@ -133,9 +130,9 @@ async function clearDatabase() {
 }
 
 $("clear-db").addEventListener("click", () => {
-  $("clear-db").style.display = "none";
-  $("clear-confirm").style.display = "block";
-  $("clear-status").style.display = "none";
+  $("clear-db").classList.add("hidden");
+  $("clear-confirm").classList.remove("hidden");
+  $("clear-status").classList.add("hidden");
 });
 $("clear-cancel").addEventListener("click", resetClearUI);
 $("clear-go").addEventListener("click", clearDatabase);

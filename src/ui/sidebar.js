@@ -4,7 +4,8 @@
 // and the mute switch as "highlights:set" so it stays decoupled from the
 // comment popup and the lifecycle coordinator.
 
-import { COLOR_CSS } from "../constants.js";
+import { HL_VAR } from "../constants.js";
+import { ICONS } from "../styles.js";
 import { truncate, escapeHtml } from "../helpers.js";
 import { on, emit } from "../bus.js";
 import { send } from "../daemon.js";
@@ -17,98 +18,100 @@ let sidebar = null;
 let sidebarOpen = false;
 let docMetaTimer = null;
 
-export function initSidebar(shadow) {
-  buildSidebar(shadow);
-  buildSidebarTab(shadow);
+export function initSidebar(scope) {
+  buildSidebar(scope);
+  buildSidebarTab(scope);
 }
 
-function buildSidebar(shadow) {
+function buildSidebar(scope) {
   sidebar = document.createElement("div");
-  sidebar.className = "sidebar hidden";
+  sidebar.className = "mk-sidebar hidden";
   sidebar.innerHTML = `
-    <div class="sidebar-header">
-      <span>Annotations</span>
-      <div class="header-actions">
-        <label class="switch" title="Show/hide highlights (keeps this sidebar open)">
-          <input type="checkbox" data-role="highlights-toggle" checked>
-          <span class="slider"></span>
-        </label>
-        <button data-role="close" title="Close">×</button>
+    <div class="mk-sidebar-header">
+      <span class="mk-sidebar-title">Annotations</span>
+      <div class="mk-header-actions">
+        <button class="mk-toggle" role="switch" aria-checked="true"
+                data-role="highlights-toggle" title="Show/hide highlights"
+                aria-label="Show or hide highlights"></button>
+        <button class="mk-btn-icon mk-btn-icon--sm mk-tooltip" data-role="close"
+                data-tip="Close" aria-label="Close sidebar">${ICONS.close}</button>
       </div>
     </div>
-    <div class="doc-meta">
-      <textarea class="doc-title" data-role="doc-title" rows="1" placeholder="Custom title…"></textarea>
-      <textarea class="doc-subtitle" data-role="doc-subtitle" rows="1" placeholder="Subtitle…"></textarea>
+    <div class="mk-doc-meta">
+      <textarea class="mk-input mk-doc-title" data-role="doc-title" rows="1" placeholder="Custom title…"></textarea>
+      <textarea class="mk-input mk-doc-subtitle" data-role="doc-subtitle" rows="1" placeholder="Subtitle…"></textarea>
     </div>
-    <div class="doc-tags">
-      <div class="section-label">Page tags</div>
-      <div class="chips" data-role="doc-chips"></div>
-      <input class="tag-add" data-role="doc-tag-add" placeholder="add tag…" />
+    <div class="mk-doc-tags">
+      <span class="mk-label">:tags:</span>
+      <span data-role="doc-chips" style="display:contents"></span>
+      <button class="mk-tag-add" data-role="doc-tag-btn">+ tag</button>
+      <input class="mk-tag-input hidden" data-role="doc-tag-add" placeholder="tag…" />
     </div>
-    <div class="annot-list" data-role="list"></div>
-    <div class="sidebar-footer">
-      <div class="footer-notice hidden" data-role="dirty-notice">
-        <button class="notice-close" data-role="dirty-notice-close" title="Dismiss">×</button>
-        <div class="notice-text">
-          <b>⚠ Manual edits detected.</b> This page's <code>.org</code> has edits
-          Meraki will overwrite on the next change — <b>Freeze</b> the page to keep
-          them.
+    <div class="mk-list" data-role="list"></div>
+    <div class="mk-footer">
+      <div class="mk-notice hidden" data-role="dirty-notice">
+        <button class="mk-notice-close" data-role="dirty-notice-close" aria-label="Dismiss">${ICONS.close}</button>
+        <div>
+          <b>Manual edits detected.</b> This page's <code>.org</code> has edits
+          Meraki will overwrite on the next change — <b>Freeze</b> the page to keep them.
         </div>
       </div>
-      <div class="footer-actions" data-role="footer-actions">
-        <button class="footer-btn freeze-btn" data-role="freeze">🧊 Freeze</button>
-        <button class="footer-btn delete-btn" data-role="delete-page">🗑 Delete page</button>
+      <div class="mk-footer-actions" data-role="footer-actions">
+        <button class="mk-btn-ghost" data-role="freeze">${ICONS.snowflake} Freeze</button>
+        <button class="mk-btn-icon mk-btn-icon--danger mk-tooltip" data-role="delete-page"
+                data-tip="Delete page" aria-label="Delete this page's annotations">${ICONS.trash}</button>
       </div>
-      <div class="footer-confirm hidden" data-role="freeze-confirm">
-        <div class="footer-warn">
+      <div class="mk-confirm hidden" data-role="freeze-confirm">
+        <div class="mk-confirm-text">
           Archives this page's <code>.org</code> so the daemon never rewrites it
           again. <b>This can't be undone</b> — revisiting the page later starts a
           fresh, empty annotation set.
         </div>
-        <div class="footer-confirm-actions">
-          <button data-role="freeze-cancel">Cancel</button>
-          <button class="danger" data-role="freeze-go">Freeze permanently</button>
+        <div class="mk-confirm-actions">
+          <button class="mk-btn-ghost" data-role="freeze-cancel">Cancel</button>
+          <button class="mk-btn-danger" data-role="freeze-go">Freeze permanently</button>
         </div>
       </div>
-      <div class="footer-confirm hidden" data-role="delete-confirm">
-        <div class="footer-warn">
+      <div class="mk-confirm hidden" data-role="delete-confirm">
+        <div class="mk-confirm-text">
           Permanently removes this page's annotations, its <code>.org</code>
           file, and any saved images from Meraki. <b>This can't be undone.</b>
         </div>
-        <div class="footer-confirm-actions">
-          <button data-role="delete-cancel">Cancel</button>
-          <button class="danger" data-role="delete-go">Delete permanently</button>
+        <div class="mk-confirm-actions">
+          <button class="mk-btn-ghost" data-role="delete-cancel">Cancel</button>
+          <button class="mk-btn-danger" data-role="delete-go">Delete permanently</button>
         </div>
       </div>
     </div>
-    <div class="reconcile-overlay hidden" data-role="reconcile">
-      <div class="reconcile-card">
-        <div class="reconcile-title">⚠ This page's .org file is missing</div>
-        <div class="reconcile-body">
+    <div class="mk-reconcile hidden" data-role="reconcile">
+      <div class="mk-reconcile-card">
+        <div class="mk-reconcile-title">This page's .org file is missing</div>
+        <div class="mk-reconcile-body">
           Its <code>.org</code> file was deleted on disk, but the annotations are
           still stored in Meraki. Choose what to do — <b>no new annotations can be
           made on this page until you resolve this</b>.
         </div>
-        <div class="reconcile-actions">
-          <button class="primary" data-role="reconcile-restore">Restore the .org file</button>
-          <button class="danger" data-role="reconcile-delete">Delete the annotations</button>
+        <div class="mk-reconcile-actions">
+          <button class="mk-btn-primary" data-role="reconcile-restore">Restore the .org file</button>
+          <button class="mk-btn-danger" data-role="reconcile-delete">Delete the annotations</button>
         </div>
       </div>
     </div>
   `;
-  shadow.appendChild(sidebar);
+  scope.appendChild(sidebar);
 
   sidebar.querySelector('[data-role="close"]').addEventListener("click", toggleSidebar);
   // Mutes highlighting (hides highlights + selection popup) but leaves the
   // sidebar open. The toolbar toggle is the master on/off that tears down the
   // whole on-page UI.
-  sidebar
-    .querySelector('[data-role="highlights-toggle"]')
-    .addEventListener("change", (e) => {
-      emit("highlights:set", e.target.checked);
-    });
-  // Custom title / subtitle: textareas so long text wraps and the field grows
-  // in height. Auto-save debounced; export falls back to the page title when the
+  const hlToggle = sidebar.querySelector('[data-role="highlights-toggle"]');
+  hlToggle.addEventListener("click", () => {
+    const next = hlToggle.getAttribute("aria-checked") !== "true";
+    hlToggle.setAttribute("aria-checked", String(next));
+    emit("highlights:set", next);
+  });
+  // Custom title / subtitle: textareas so long text wraps and the field grows in
+  // height. Auto-save debounced; export falls back to the page title when the
   // custom title is blank. Enter is suppressed so the stored value stays a single
   // line (it becomes #+TITLE: / #+SUBTITLE:), while long text still soft-wraps.
   for (const role of ["doc-title", "doc-subtitle"]) {
@@ -118,72 +121,62 @@ function buildSidebar(shadow) {
       scheduleDocMetaSave();
     });
     ta.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        ta.blur();
-      }
+      if (e.key === "Enter") { e.preventDefault(); ta.blur(); }
     });
   }
+
+  // Page tags: "+ tag" reveals an inline input; Enter adds, Escape/blur hides.
+  const tagBtn = sidebar.querySelector('[data-role="doc-tag-btn"]');
   const tagAdd = sidebar.querySelector('[data-role="doc-tag-add"]');
+  const showTagInput = (show) => {
+    tagBtn.classList.toggle("hidden", show);
+    tagAdd.classList.toggle("hidden", !show);
+    if (show) tagAdd.focus();
+  };
+  tagBtn.addEventListener("click", () => showTagInput(true));
   tagAdd.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && tagAdd.value.trim()) {
       addDocTag(tagAdd.value.trim());
       tagAdd.value = "";
+    } else if (e.key === "Escape") {
+      tagAdd.value = "";
+      showTagInput(false);
     }
   });
+  tagAdd.addEventListener("blur", () => { tagAdd.value = ""; showTagInput(false); });
 
   // Footer actions. Both freeze and delete are one-way and destroy the page's
   // live annotation set, so each uses a two-step confirm.
   sidebar.querySelector('[data-role="freeze"]').addEventListener("click", () => {
-    if (state.size === 0) {
-      showToast("Nothing to freeze on this page yet.");
-      return;
-    }
+    if (state.size === 0) { showToast("Nothing to freeze on this page yet."); return; }
     showFooterConfirm("freeze-confirm");
   });
   sidebar.querySelector('[data-role="delete-page"]').addEventListener("click", () => {
-    if (state.size === 0) {
-      showToast("Nothing to delete on this page.");
-      return;
-    }
+    if (state.size === 0) { showToast("Nothing to delete on this page."); return; }
     showFooterConfirm("delete-confirm");
   });
-  sidebar
-    .querySelector('[data-role="freeze-cancel"]')
-    .addEventListener("click", resetFooter);
-  sidebar
-    .querySelector('[data-role="delete-cancel"]')
-    .addEventListener("click", resetFooter);
+  sidebar.querySelector('[data-role="freeze-cancel"]').addEventListener("click", resetFooter);
+  sidebar.querySelector('[data-role="delete-cancel"]').addEventListener("click", resetFooter);
   sidebar.querySelector('[data-role="freeze-go"]').addEventListener("click", doFreeze);
-  sidebar
-    .querySelector('[data-role="delete-go"]')
-    .addEventListener("click", doDeletePage);
+  sidebar.querySelector('[data-role="delete-go"]').addEventListener("click", doDeletePage);
 
   // Missing-file reconcile modal (blocking): restore regenerates the .org from
   // the DB; delete throws the annotations away. Either resolves the lock.
-  sidebar
-    .querySelector('[data-role="reconcile-restore"]')
-    .addEventListener("click", doRestore);
-  sidebar
-    .querySelector('[data-role="reconcile-delete"]')
-    .addEventListener("click", doDeletePage);
+  sidebar.querySelector('[data-role="reconcile-restore"]').addEventListener("click", doRestore);
+  sidebar.querySelector('[data-role="reconcile-delete"]').addEventListener("click", doDeletePage);
 
-  // Dismissible dirty-file info notice (non-blocking, unlike the modal).
-  sidebar
-    .querySelector('[data-role="dirty-notice-close"]')
-    .addEventListener("click", hideDirtyNotice);
+  // Dismissible dirty-file notice (non-blocking, unlike the modal).
+  sidebar.querySelector('[data-role="dirty-notice-close"]').addEventListener("click", hideDirtyNotice);
 }
 
-// A persistent info banner in the footer (vs a toast that's easy to miss): the
+// A persistent notice in the footer (vs a toast that's easy to miss): the
 // generated .org has manual edits that the next write will overwrite.
 export function showDirtyNotice() {
-  if (sidebar)
-    sidebar.querySelector('[data-role="dirty-notice"]').classList.remove("hidden");
+  if (sidebar) sidebar.querySelector('[data-role="dirty-notice"]').classList.remove("hidden");
 }
 
 export function hideDirtyNotice() {
-  if (sidebar)
-    sidebar.querySelector('[data-role="dirty-notice"]').classList.add("hidden");
+  if (sidebar) sidebar.querySelector('[data-role="dirty-notice"]').classList.add("hidden");
 }
 
 function showFooterConfirm(role) {
@@ -201,11 +194,7 @@ function resetFooter() {
 async function doFreeze() {
   const goBtn = sidebar.querySelector('[data-role="freeze-go"]');
   goBtn.disabled = true;
-  const res = await send({
-    type: "freeze_document",
-    url: location.href,
-    title: document.title,
-  });
+  const res = await send({ type: "freeze_document", url: location.href, title: document.title });
   goBtn.disabled = false;
   if (!res || !res.ok) {
     showToast(res && res.error ? `Freeze failed: ${res.error}` : "Freeze failed.");
@@ -244,13 +233,14 @@ function blankLocalView() {
 }
 
 // A tiny always-present tab on the right edge to open the sidebar.
-function buildSidebarTab(shadow) {
+function buildSidebarTab(scope) {
   const tab = document.createElement("button");
-  tab.className = "sidebar-tab";
-  tab.textContent = "✍";
-  tab.title = "Annotations";
+  tab.className = "mk-tab mk-tooltip";
+  tab.setAttribute("data-tip", "Annotations");
+  tab.setAttribute("aria-label", "Open annotations sidebar");
+  tab.innerHTML = ICONS.pencil;
   tab.addEventListener("click", toggleSidebar);
-  shadow.appendChild(tab);
+  scope.appendChild(tab);
 }
 
 function toggleSidebar() {
@@ -297,9 +287,7 @@ export function showReconcile() {
 
 function hideReconcile() {
   session.reconciling = false;
-  if (sidebar) {
-    sidebar.querySelector('[data-role="reconcile"]').classList.add("hidden");
-  }
+  if (sidebar) sidebar.querySelector('[data-role="reconcile"]').classList.add("hidden");
 }
 
 async function doRestore() {
@@ -318,7 +306,7 @@ async function doRestore() {
 
 export function setHighlightsToggle(checked) {
   const t = sidebar && sidebar.querySelector('[data-role="highlights-toggle"]');
-  if (t) t.checked = checked;
+  if (t) t.setAttribute("aria-checked", String(checked));
 }
 
 // Populate the title/subtitle inputs and page tags from a freshly loaded page.
@@ -326,8 +314,7 @@ export function applyLoadedMeta({ customTitle, subtitle, pageTitle }) {
   sidebar.querySelector('[data-role="doc-title"]').value = customTitle || "";
   // Placeholder is the full page title (untruncated) -- it's the default that
   // export falls back to, and the textarea wraps/grows to show all of it.
-  sidebar.querySelector('[data-role="doc-title"]').placeholder =
-    pageTitle || "Custom title…";
+  sidebar.querySelector('[data-role="doc-title"]').placeholder = pageTitle || "Custom title…";
   sidebar.querySelector('[data-role="doc-subtitle"]').value = subtitle || "";
   refreshDocMetaSizes(); // fit heights to the freshly loaded text
   renderDocTags();
@@ -335,7 +322,7 @@ export function applyLoadedMeta({ customTitle, subtitle, pageTitle }) {
 
 // Order by where the highlight sits in the page (document order), not by
 // creation order, so the list mirrors the reading flow. Works across text
-// (range start node) and image (the <img> element) annotations via
+// (range start node) and image (the <img>/<svg> element) annotations via
 // compareDocumentPosition; orphaned annotations (no located node) sink to the
 // bottom.
 function nodeOf(entry) {
@@ -366,30 +353,41 @@ async function hydrateThumb(entry, item) {
   const res = await send({ type: "get_image", file: entry.data.image_file });
   if (!res || !res.ok || !res.data || !res.data.data_url) return;
   entry.data._thumb = res.data.data_url;
-  const ph = item.querySelector(".annot-thumb");
+  const ph = item.querySelector('[data-role="thumb"]');
   if (ph) {
     const img = document.createElement("img");
-    img.className = "annot-thumb";
+    img.className = "mk-thumb-img";
+    img.setAttribute("data-role", "thumb");
     img.alt = "";
     img.src = entry.data._thumb;
     ph.replaceWith(img);
   }
 }
 
+function hlVarFor(color) {
+  return HL_VAR[color] || "--mk-hl-amber";
+}
+
+function tagChips(tags) {
+  return (tags || []).map((t) => `<span class="mk-tag">${escapeHtml(t)}</span>`).join("");
+}
+
 function renderSidebarList() {
   const list = sidebar.querySelector('[data-role="list"]');
   const entries = [...state.values()].sort(byPageOrder);
   if (entries.length === 0) {
-    list.innerHTML = `<div class="empty">No annotations on this page yet.</div>`;
+    list.innerHTML = `<div class="mk-empty">No annotations on this page yet.</div>`;
     return;
   }
   list.innerHTML = "";
   for (const entry of entries) {
     const item = document.createElement("div");
-    item.className = "annot-item" + (entry.orphaned ? " orphaned" : "");
-    const tags = (entry.data.tags || [])
-      .map((t) => `<span class="chip">${escapeHtml(t)}</span>`)
-      .join("");
+    const missing = entry.orphaned;
+    item.className = "mk-card" + (missing ? " mk-card--missing" : "");
+    item.style.setProperty("--mk-hl-current", `var(${hlVarFor(entry.data.color)})`);
+    const tags = `<div class="mk-card__tags">${tagChips(entry.data.tags)}</div>`;
+    const del = `<button class="mk-card__del" aria-label="Delete annotation">${ICONS.trash}</button>`;
+
     if (entry.data.kind === "image") {
       // Inline-svg annotations (quote tagged "svg:") have no loadable page URL,
       // so their thumbnail is the saved PNG fetched from the daemon (cached on
@@ -397,17 +395,17 @@ function renderSidebarList() {
       const isSvg = typeof entry.data.quote === "string"
         && entry.data.quote.startsWith("svg:");
       const thumb = entry.data._thumb
-        ? `<img class="annot-thumb" src="${escapeHtml(entry.data._thumb)}" alt="" />`
+        ? `<img class="mk-thumb-img" data-role="thumb" src="${escapeHtml(entry.data._thumb)}" alt="" />`
         : isSvg
-          ? `<div class="annot-thumb annot-thumb-svg">◈ diagram</div>`
-          : `<img class="annot-thumb" src="${escapeHtml(entry.data.quote)}" alt="" />`;
+          ? `<div class="mk-thumb-svg" data-role="thumb">${ICONS.diagram} diagram</div>`
+          : `<img class="mk-thumb-img" data-role="thumb" src="${escapeHtml(entry.data.quote)}" alt="" />`;
       const gone = isSvg ? "diagram not on page" : "image not on page";
       item.innerHTML = `
-        <button class="annot-del" title="Delete annotation">×</button>
+        ${del}
         ${thumb}
-        ${entry.data.note ? `<div class="annot-note">${escapeHtml(entry.data.note)}</div>` : ""}
-        <div class="annot-tags">${tags}</div>
-        ${entry.orphaned ? `<div class="orphan-tag">⚠ ${gone}</div>` : ""}
+        ${entry.data.note ? `<div class="mk-card__note">${escapeHtml(entry.data.note)}</div>` : ""}
+        ${tags}
+        ${missing ? `<div class="mk-card__warn">${ICONS.warn} ${gone}</div>` : ""}
       `;
       if (isSvg && !entry.data._thumb) hydrateThumb(entry, item);
       item.addEventListener("click", () => {
@@ -416,13 +414,12 @@ function renderSidebarList() {
         window.scrollTo({ top: window.scrollY + rect.top - 120, behavior: "smooth" });
       });
     } else {
-      const swatch = `<span class="mini-swatch" style="background:${COLOR_CSS[entry.data.color]}"></span>`;
       item.innerHTML = `
-        <button class="annot-del" title="Delete annotation">×</button>
-        <div class="annot-quote">${swatch}${escapeHtml(truncate(entry.data.quote, 120))}</div>
-        ${entry.data.note ? `<div class="annot-note">${escapeHtml(entry.data.note)}</div>` : ""}
-        <div class="annot-tags">${tags}</div>
-        ${entry.orphaned ? `<div class="orphan-tag">⚠ couldn't locate on page</div>` : ""}
+        ${del}
+        <div class="mk-card__excerpt">${escapeHtml(truncate(entry.data.quote, 140))}</div>
+        ${entry.data.note ? `<div class="mk-card__note">${escapeHtml(entry.data.note)}</div>` : ""}
+        ${tags}
+        ${missing ? `<div class="mk-card__warn">${ICONS.warn} couldn't locate on page</div>` : ""}
       `;
       item.addEventListener("click", () => {
         if (entry.orphaned || !entry.ranges[0]) return;
@@ -432,8 +429,7 @@ function renderSidebarList() {
         flashRange(r);
       });
     }
-    const del = item.querySelector(".annot-del");
-    del.addEventListener("click", (e) => {
+    item.querySelector(".mk-card__del").addEventListener("click", (e) => {
       e.stopPropagation(); // don't trigger the item's scroll-to
       emit("remove", entry.data.id);
     });
@@ -444,15 +440,12 @@ function renderSidebarList() {
 function renderDocTags() {
   const chips = sidebar.querySelector('[data-role="doc-chips"]');
   chips.innerHTML = doc.tags
-    .map(
-      (t, i) =>
-        `<span class="chip removable" data-i="${i}">${escapeHtml(t)}<span class="x">×</span></span>`
-    )
+    .map((t, i) => `<span class="mk-tag" data-i="${i}">${escapeHtml(t)}` +
+      `<span class="mk-tag-x" aria-label="Remove tag">×</span></span>`)
     .join("");
-  chips.querySelectorAll(".removable").forEach((c) => {
-    c.querySelector(".x").addEventListener("click", () =>
-      removeDocTag(parseInt(c.dataset.i, 10))
-    );
+  chips.querySelectorAll(".mk-tag").forEach((c) => {
+    c.querySelector(".mk-tag-x").addEventListener("click", () =>
+      removeDocTag(parseInt(c.dataset.i, 10)));
   });
 }
 
@@ -484,14 +477,9 @@ function scheduleDocMetaSave() {
 }
 
 function persistDocMeta() {
-  if (docMetaTimer) {
-    clearTimeout(docMetaTimer);
-    docMetaTimer = null;
-  }
-  const custom_title =
-    sidebar.querySelector('[data-role="doc-title"]').value.trim() || null;
-  const subtitle =
-    sidebar.querySelector('[data-role="doc-subtitle"]').value.trim() || null;
+  if (docMetaTimer) { clearTimeout(docMetaTimer); docMetaTimer = null; }
+  const custom_title = sidebar.querySelector('[data-role="doc-title"]').value.trim() || null;
+  const subtitle = sidebar.querySelector('[data-role="doc-subtitle"]').value.trim() || null;
   return send({
     type: "set_document_meta",
     url: location.href,

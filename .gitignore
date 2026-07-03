@@ -22,3 +22,7 @@ debug/moz-native.log*
 # OS / editor cruft
 .DS_Store
 *.swp
+
+# Local design handoff (reference only; the design is integrated into
+# extension/ + src/styles.js — fonts and icons live in extension/).
+new-style/
